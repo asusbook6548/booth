@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import {
+  createNewUser,
   listUsers,
   getUser,
   editUser,
@@ -13,6 +14,80 @@ import {
 } from "../../middleware/auth.middleware.js";
 
 const router = Router();
+
+/**
+ * @swagger
+ * /api/users:
+ *   post:
+ *     summary: Create new admin user
+ *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - password
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: John Admin
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: admin2@example.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 8
+ *                 example: SecurePass@123
+ *               role:
+ *                 type: string
+ *                 enum: [ADMIN]
+ *                 default: ADMIN
+ *               status:
+ *                 type: string
+ *                 enum: [ACTIVE, INACTIVE]
+ *                 default: ACTIVE
+ *     responses:
+ *       201:
+ *         description: User created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: User created successfully
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Validation error or creation failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post(
+  "/",
+  authMiddleware,
+  createNewUser
+);
 
 /**
  * @swagger

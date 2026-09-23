@@ -4,6 +4,7 @@ import {
 } from "../../utils/password.js";
 
 import type {
+  CreateUserInput,
   UserListInput,
   UpdateUserInput,
   UpdateStatusInput,
@@ -27,6 +28,65 @@ function sanitizeUser(user: {
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
+}
+
+/**
+ * Create a new user
+ */
+export async function createUser(
+  input: CreateUserInput,
+  createdByUserId?: string
+) {
+  const normalizedEmail = input.email.trim().toLowerCase();
+
+  const existing = await prisma.user.findUnique({
+    where: {
+      email: normalizedEmail,
+    },
+  });
+
+  if (existing) {
+    throw new Error("User with this email already exists");
+  }
+
+  const hashedPassword = await hashPassword(input.password);
+
+  const newUser = await prisma.user.create({
+    data: {
+      name: input.name.trim(),
+      email: normalizedEmail,
+      password: hashedPassword,
+      role: input.role || "ADMIN",
+      status: input.status || "ACTIVE",
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  if (createdByUserId) {
+    await prisma.auditLog.create({
+      data: {
+        action: "USER_CREATED",
+        entity: "USER",
+        entityId: newUser.id,
+        userId: createdByUserId,
+        details: {
+          email: newUser.email,
+          role: newUser.role,
+          status: newUser.status,
+        },
+      },
+    });
+  }
+
+  return newUser;
 }
 
 /**

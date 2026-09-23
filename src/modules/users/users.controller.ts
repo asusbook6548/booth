@@ -8,6 +8,7 @@ import type {
 } from "../../middleware/auth.middleware.js";
 
 import {
+  createUserSchema,
   userListSchema,
   updateUserSchema,
   updateStatusSchema,
@@ -15,12 +16,55 @@ import {
 } from "./users.validation.js";
 
 import {
+  createUser,
   getUsers,
   getUserById,
   updateUser,
   updateUserStatus,
   updateUserPassword,
 } from "./users.service.js";
+
+/**
+ * POST /api/users
+ */
+export async function createNewUser(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const input =
+      createUserSchema.parse(
+        req.body
+      );
+
+    const result =
+      await createUser(
+        input,
+        req.user?.id
+      );
+
+    return res.status(201).json({
+      success: true,
+      message: "User created successfully",
+      data: result,
+    });
+  } catch (error) {
+    console.error(
+      "Create user error:",
+      error
+    );
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to create user";
+
+    return res.status(400).json({
+      success: false,
+      message,
+    });
+  }
+}
 
 /**
  * GET /api/users
