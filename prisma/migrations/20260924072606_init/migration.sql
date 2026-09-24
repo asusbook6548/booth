@@ -73,8 +73,8 @@ CREATE TABLE "Volunteer" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "mobile" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
     "status" "VolunteerStatus" NOT NULL DEFAULT 'ACTIVE',
-    "firebaseUid" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -86,13 +86,20 @@ CREATE TABLE "Voter" (
     "id" TEXT NOT NULL,
     "epic" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "nameHindi" TEXT,
     "fatherName" TEXT,
+    "fatherNameHindi" TEXT,
     "motherName" TEXT,
     "husbandName" TEXT,
-    "houseNumber" TEXT,
-    "village" TEXT,
     "gender" TEXT,
     "age" INTEGER,
+    "dateOfBirth" TEXT,
+    "houseNumber" TEXT,
+    "village" TEXT,
+    "assemblyNumber" TEXT,
+    "partNumber" TEXT,
+    "partSerial" TEXT,
+    "pollingStationName" TEXT,
     "assemblyId" TEXT NOT NULL,
     "boothId" TEXT NOT NULL,
     "mobile" TEXT,
@@ -112,6 +119,7 @@ CREATE TABLE "ClassificationHistory" (
     "oldValue" "Classification",
     "newValue" "Classification" NOT NULL,
     "changedById" TEXT,
+    "changedByUserId" TEXT,
     "changedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ClassificationHistory_pkey" PRIMARY KEY ("id")
@@ -163,32 +171,6 @@ CREATE TABLE "AuditLog" (
 );
 
 -- CreateTable
-CREATE TABLE "ElectionDayUpdate" (
-    "id" TEXT NOT NULL,
-    "boothId" TEXT NOT NULL,
-    "volunteerId" TEXT NOT NULL,
-    "turnout" INTEGER,
-    "note" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "ElectionDayUpdate_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "ElectionDayAlert" (
-    "id" TEXT NOT NULL,
-    "boothId" TEXT NOT NULL,
-    "volunteerId" TEXT NOT NULL,
-    "type" "AlertType" NOT NULL,
-    "note" TEXT NOT NULL,
-    "resolved" BOOLEAN NOT NULL DEFAULT false,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "resolvedAt" TIMESTAMP(3),
-
-    CONSTRAINT "ElectionDayAlert_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "SystemSettings" (
     "id" TEXT NOT NULL,
     "strongGreenPercent" DOUBLE PRECISION NOT NULL DEFAULT 55,
@@ -219,6 +201,9 @@ CREATE INDEX "Assembly_number_idx" ON "Assembly"("number");
 CREATE INDEX "Assembly_electionYear_idx" ON "Assembly"("electionYear");
 
 -- CreateIndex
+CREATE INDEX "Assembly_isActive_idx" ON "Assembly"("isActive");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Booth_volunteerId_key" ON "Booth"("volunteerId");
 
 -- CreateIndex
@@ -228,13 +213,13 @@ CREATE INDEX "Booth_assemblyId_idx" ON "Booth"("assemblyId");
 CREATE INDEX "Booth_village_idx" ON "Booth"("village");
 
 -- CreateIndex
+CREATE INDEX "Booth_status_idx" ON "Booth"("status");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Booth_assemblyId_boothNumber_key" ON "Booth"("assemblyId", "boothNumber");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Volunteer_mobile_key" ON "Volunteer"("mobile");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Volunteer_firebaseUid_key" ON "Volunteer"("firebaseUid");
 
 -- CreateIndex
 CREATE INDEX "Volunteer_status_idx" ON "Volunteer"("status");
@@ -270,6 +255,9 @@ CREATE INDEX "Voter_gender_idx" ON "Voter"("gender");
 CREATE INDEX "Voter_age_idx" ON "Voter"("age");
 
 -- CreateIndex
+CREATE INDEX "Voter_partNumber_idx" ON "Voter"("partNumber");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Voter_assemblyId_epic_key" ON "Voter"("assemblyId", "epic");
 
 -- CreateIndex
@@ -277,6 +265,12 @@ CREATE INDEX "ClassificationHistory_voterId_idx" ON "ClassificationHistory"("vot
 
 -- CreateIndex
 CREATE INDEX "ClassificationHistory_changedById_idx" ON "ClassificationHistory"("changedById");
+
+-- CreateIndex
+CREATE INDEX "ClassificationHistory_changedByUserId_idx" ON "ClassificationHistory"("changedByUserId");
+
+-- CreateIndex
+CREATE INDEX "ClassificationHistory_changedAt_idx" ON "ClassificationHistory"("changedAt");
 
 -- CreateIndex
 CREATE INDEX "ImportBatch_uploadedById_idx" ON "ImportBatch"("uploadedById");
@@ -311,27 +305,6 @@ CREATE INDEX "AuditLog_voterId_idx" ON "AuditLog"("voterId");
 -- CreateIndex
 CREATE INDEX "AuditLog_createdAt_idx" ON "AuditLog"("createdAt");
 
--- CreateIndex
-CREATE INDEX "ElectionDayUpdate_boothId_idx" ON "ElectionDayUpdate"("boothId");
-
--- CreateIndex
-CREATE INDEX "ElectionDayUpdate_volunteerId_idx" ON "ElectionDayUpdate"("volunteerId");
-
--- CreateIndex
-CREATE INDEX "ElectionDayUpdate_createdAt_idx" ON "ElectionDayUpdate"("createdAt");
-
--- CreateIndex
-CREATE INDEX "ElectionDayAlert_boothId_idx" ON "ElectionDayAlert"("boothId");
-
--- CreateIndex
-CREATE INDEX "ElectionDayAlert_volunteerId_idx" ON "ElectionDayAlert"("volunteerId");
-
--- CreateIndex
-CREATE INDEX "ElectionDayAlert_resolved_idx" ON "ElectionDayAlert"("resolved");
-
--- CreateIndex
-CREATE INDEX "ElectionDayAlert_createdAt_idx" ON "ElectionDayAlert"("createdAt");
-
 -- AddForeignKey
 ALTER TABLE "Booth" ADD CONSTRAINT "Booth_assemblyId_fkey" FOREIGN KEY ("assemblyId") REFERENCES "Assembly"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -351,6 +324,9 @@ ALTER TABLE "ClassificationHistory" ADD CONSTRAINT "ClassificationHistory_voterI
 ALTER TABLE "ClassificationHistory" ADD CONSTRAINT "ClassificationHistory_changedById_fkey" FOREIGN KEY ("changedById") REFERENCES "Volunteer"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "ClassificationHistory" ADD CONSTRAINT "ClassificationHistory_changedByUserId_fkey" FOREIGN KEY ("changedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "ImportBatch" ADD CONSTRAINT "ImportBatch_uploadedById_fkey" FOREIGN KEY ("uploadedById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -364,15 +340,3 @@ ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_volunteerId_fkey" FOREIGN KEY ("
 
 -- AddForeignKey
 ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_voterId_fkey" FOREIGN KEY ("voterId") REFERENCES "Voter"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ElectionDayUpdate" ADD CONSTRAINT "ElectionDayUpdate_boothId_fkey" FOREIGN KEY ("boothId") REFERENCES "Booth"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ElectionDayUpdate" ADD CONSTRAINT "ElectionDayUpdate_volunteerId_fkey" FOREIGN KEY ("volunteerId") REFERENCES "Volunteer"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ElectionDayAlert" ADD CONSTRAINT "ElectionDayAlert_boothId_fkey" FOREIGN KEY ("boothId") REFERENCES "Booth"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ElectionDayAlert" ADD CONSTRAINT "ElectionDayAlert_volunteerId_fkey" FOREIGN KEY ("volunteerId") REFERENCES "Volunteer"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

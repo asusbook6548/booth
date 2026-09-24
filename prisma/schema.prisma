@@ -132,9 +132,6 @@ model Booth {
 
   voters Voter[]
 
-  electionDayUpdates ElectionDayUpdate[]
-  alerts             ElectionDayAlert[]
-
   @@unique([assemblyId, boothNumber])
   @@index([assemblyId])
   @@index([village])
@@ -158,9 +155,6 @@ model Volunteer {
   booth Booth?
 
   classificationHistory ClassificationHistory[]
-
-  electionDayUpdates ElectionDayUpdate[]
-  electionDayAlerts  ElectionDayAlert[]
 
   auditLogs AuditLog[]
 
@@ -400,59 +394,6 @@ model AuditLog {
   @@index([createdAt])
 }
 
-// ========================================
-// ELECTION DAY UPDATE
-// ========================================
-// Currently skipped.
-// Model retained for future use.
-
-model ElectionDayUpdate {
-  id String @id @default(uuid())
-
-  boothId String
-  booth   Booth  @relation(fields: [boothId], references: [id])
-
-  volunteerId String
-  volunteer   Volunteer @relation(fields: [volunteerId], references: [id])
-
-  turnout Int?
-  note    String?
-
-  createdAt DateTime @default(now())
-
-  @@index([boothId])
-  @@index([volunteerId])
-  @@index([createdAt])
-}
-
-// ========================================
-// ELECTION DAY ALERT
-// ========================================
-// Currently skipped.
-// Model retained for future use.
-
-model ElectionDayAlert {
-  id String @id @default(uuid())
-
-  boothId String
-  booth   Booth  @relation(fields: [boothId], references: [id])
-
-  volunteerId String
-  volunteer   Volunteer @relation(fields: [volunteerId], references: [id])
-
-  type AlertType
-  note String
-
-  resolved Boolean @default(false)
-
-  createdAt  DateTime  @default(now())
-  resolvedAt DateTime?
-
-  @@index([boothId])
-  @@index([volunteerId])
-  @@index([resolved])
-  @@index([createdAt])
-}
 
 // ========================================
 // SYSTEM SETTINGS
