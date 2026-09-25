@@ -379,27 +379,12 @@ async function calculateBoothAnalytics(
 // COMMON BOOTH QUERY
 // ========================================
 
-async function getAllBoothAnalytics(
-  input: BoothAnalysisFilterInput
-) {
-  const assembly =
-    await getSingleActiveAssembly();
-
-  const settings =
-    await getSettings();
-
-  const {
-    page,
-    limit,
-    search,
-  } = input;
-
-  const skip =
-    (page - 1) * limit;
+async function computeAllAssemblyBooths(search?: string) {
+  const assembly = await getSingleActiveAssembly();
+  const settings = await getSettings();
 
   const where = {
     assemblyId: assembly.id,
-
     ...(search
       ? {
           OR: [
@@ -409,14 +394,12 @@ async function getAllBoothAnalytics(
                 mode: "insensitive" as const,
               },
             },
-
             {
               name: {
                 contains: search,
                 mode: "insensitive" as const,
               },
             },
-
             {
               village: {
                 contains: search,
@@ -428,84 +411,154 @@ async function getAllBoothAnalytics(
       : {}),
   };
 
-  const [
-    booths,
-    total,
-  ] = await Promise.all([
-    prisma.booth.findMany({
-      where,
-
-      skip,
-
-      take: limit,
-
-      orderBy: {
-        boothNumber: "asc",
+  const booths = await prisma.booth.findMany({
+    where,
+    orderBy: {
+      boothNumber: "asc",
+    },
+    select: {
+      id: true,
+      boothNumber: true,
+      name: true,
+      village: true,
+      volunteer: {
+        select: {
+          id: true,
+          name: true,
+          mobile: true,
+          status: true,
+        },
       },
-
-      select: {
-        id: true,
+      _count: {
+        select: {
+          voters: true,
+        },
       },
+    },
+  });
+
+  const boothIds = booths.map((b) => b.id);
+
+  const [boothClassificationCounts, boothVerificationCounts] = await Promise.all([
+    prisma.voter.groupBy({
+      by: ["boothId", "classification"],
+      where: { boothId: { in: boothIds } },
+      _count: { _all: true },
     }),
-
-    prisma.booth.count({
-      where,
+    prisma.voter.groupBy({
+      by: ["boothId", "verification"],
+      where: { boothId: { in: boothIds } },
+      _count: { _all: true },
     }),
   ]);
 
-  const analytics =
-    await Promise.all(
-      booths.map(
-        (booth) =>
-          calculateBoothAnalytics(
-            booth.id,
-            settings
-          )
-      )
-    );
+  const analytics = booths.map((booth) => {
+    const totalVoters = booth._count.voters;
+
+    const green =
+      boothClassificationCounts.find(
+        (c) => c.boothId === booth.id && c.classification === "GREEN"
+      )?._count._all || 0;
+
+    const yellow =
+      boothClassificationCounts.find(
+        (c) => c.boothId === booth.id && c.classification === "YELLOW"
+      )?._count._all || 0;
+
+    const red =
+      boothClassificationCounts.find(
+        (c) => c.boothId === booth.id && c.classification === "RED"
+      )?._count._all || 0;
+
+    const black =
+      boothClassificationCounts.find(
+        (c) => c.boothId === booth.id && c.classification === "BLACK"
+      )?._count._all || 0;
+
+    const unclassified =
+      boothClassificationCounts.find(
+        (c) => c.boothId === booth.id && c.classification === null
+      )?._count._all || Math.max(0, totalVoters - (green + yellow + red + black));
+
+    const verified =
+      boothVerificationCounts.find(
+        (c) => c.boothId === booth.id && c.verification === "VERIFIED"
+      )?._count._all || 0;
+
+    const unverified =
+      boothVerificationCounts.find(
+        (c) => c.boothId === booth.id && c.verification === "UNVERIFIED"
+      )?._count._all || Math.max(0, totalVoters - verified);
+
+    const greenPercentage = percentage(green, totalVoters);
+    const yellowPercentage = percentage(yellow, totalVoters);
+    const redPercentage = percentage(red, totalVoters);
+    const blackPercentage = percentage(black, totalVoters);
+    const unclassifiedPercentage = percentage(unclassified, totalVoters);
+    const verificationPercentage = percentage(verified, totalVoters);
+
+    return {
+      booth: {
+        id: booth.id,
+        boothNumber: booth.boothNumber,
+        name: booth.name,
+        village: booth.village,
+        volunteer: booth.volunteer,
+      },
+      voters: {
+        total: totalVoters,
+        green,
+        yellow,
+        red,
+        black,
+        unclassified,
+        verified,
+        unverified,
+      },
+      percentages: {
+        green: greenPercentage,
+        yellow: yellowPercentage,
+        red: redPercentage,
+        black: blackPercentage,
+        unclassified: unclassifiedPercentage,
+        verified: verificationPercentage,
+        unverified: percentage(unverified, totalVoters),
+      },
+      analysis: {
+        greenStrength: getGreenStrength(greenPercentage, settings),
+        yellowOpportunity: getYellowOpportunity(yellowPercentage, settings),
+        dataConfidence: getDataConfidence(verificationPercentage, settings),
+      },
+    };
+  });
+
+  return { assembly, settings, analytics };
+}
+
+async function getAllBoothAnalytics(input: BoothAnalysisFilterInput) {
+  const { page, limit, search } = input;
+  const skip = (page - 1) * limit;
+  const { assembly, settings, analytics } = await computeAllAssemblyBooths(search);
+
+  const total = analytics.length;
+  const sliced = analytics.slice(skip, skip + limit);
 
   return {
     assembly,
-
-    booths: analytics.filter(
-      (
-        booth
-      ): booth is NonNullable<
-        typeof booth
-      > => booth !== null
-    ),
-
+    booths: sliced,
     pagination: {
       page,
-
       limit,
-
       total,
-
-      totalPages:
-        Math.ceil(
-          total / limit
-        ),
+      totalPages: Math.ceil(total / limit) || 1,
     },
-
     thresholds: {
-      strongGreenPercent:
-        settings.strongGreenPercent,
-
-      moderateGreenPercent:
-        settings.moderateGreenPercent,
-
-      highOpportunityYellow:
-        settings.highOpportunityYellow,
-
-      mediumOpportunityYellow:
-        settings.mediumOpportunityYellow,
-
-      highVerification:
-        settings.highVerification,
-
-      mediumVerification:
-        settings.mediumVerification,
+      strongGreenPercent: settings.strongGreenPercent,
+      moderateGreenPercent: settings.moderateGreenPercent,
+      highOpportunityYellow: settings.highOpportunityYellow,
+      mediumOpportunityYellow: settings.mediumOpportunityYellow,
+      highVerification: settings.highVerification,
+      mediumVerification: settings.mediumVerification,
     },
   };
 }
@@ -514,24 +567,34 @@ async function getAllBoothAnalytics(
 // STRONG BOOTHS
 // ========================================
 
-export async function getStrongBooths(
-  input: BoothAnalysisFilterInput
-) {
-  const result =
-    await getAllBoothAnalytics(
-      input
-    );
+export async function getStrongBooths(input: BoothAnalysisFilterInput) {
+  const { page, limit, search } = input;
+  const skip = (page - 1) * limit;
+  const { assembly, settings, analytics } = await computeAllAssemblyBooths(search);
+
+  const filtered = analytics.filter(
+    (booth) => booth.analysis.greenStrength === "STRONG"
+  );
+  const total = filtered.length;
+  const sliced = filtered.slice(skip, skip + limit);
 
   return {
-    ...result,
-
-    booths:
-      result.booths.filter(
-        (booth) =>
-          booth.analysis
-            .greenStrength ===
-          "STRONG"
-      ),
+    assembly,
+    booths: sliced,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+    },
+    thresholds: {
+      strongGreenPercent: settings.strongGreenPercent,
+      moderateGreenPercent: settings.moderateGreenPercent,
+      highOpportunityYellow: settings.highOpportunityYellow,
+      mediumOpportunityYellow: settings.mediumOpportunityYellow,
+      highVerification: settings.highVerification,
+      mediumVerification: settings.mediumVerification,
+    },
   };
 }
 
@@ -539,24 +602,34 @@ export async function getStrongBooths(
 // WEAK BOOTHS
 // ========================================
 
-export async function getWeakBooths(
-  input: BoothAnalysisFilterInput
-) {
-  const result =
-    await getAllBoothAnalytics(
-      input
-    );
+export async function getWeakBooths(input: BoothAnalysisFilterInput) {
+  const { page, limit, search } = input;
+  const skip = (page - 1) * limit;
+  const { assembly, settings, analytics } = await computeAllAssemblyBooths(search);
+
+  const filtered = analytics.filter(
+    (booth) => booth.analysis.greenStrength === "WEAK"
+  );
+  const total = filtered.length;
+  const sliced = filtered.slice(skip, skip + limit);
 
   return {
-    ...result,
-
-    booths:
-      result.booths.filter(
-        (booth) =>
-          booth.analysis
-            .greenStrength ===
-          "WEAK"
-      ),
+    assembly,
+    booths: sliced,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+    },
+    thresholds: {
+      strongGreenPercent: settings.strongGreenPercent,
+      moderateGreenPercent: settings.moderateGreenPercent,
+      highOpportunityYellow: settings.highOpportunityYellow,
+      mediumOpportunityYellow: settings.mediumOpportunityYellow,
+      highVerification: settings.highVerification,
+      mediumVerification: settings.mediumVerification,
+    },
   };
 }
 
@@ -564,24 +637,34 @@ export async function getWeakBooths(
 // OPPORTUNITY BOOTHS
 // ========================================
 
-export async function getOpportunityBooths(
-  input: BoothAnalysisFilterInput
-) {
-  const result =
-    await getAllBoothAnalytics(
-      input
-    );
+export async function getOpportunityBooths(input: BoothAnalysisFilterInput) {
+  const { page, limit, search } = input;
+  const skip = (page - 1) * limit;
+  const { assembly, settings, analytics } = await computeAllAssemblyBooths(search);
+
+  const filtered = analytics.filter(
+    (booth) => booth.analysis.yellowOpportunity === "HIGH"
+  );
+  const total = filtered.length;
+  const sliced = filtered.slice(skip, skip + limit);
 
   return {
-    ...result,
-
-    booths:
-      result.booths.filter(
-        (booth) =>
-          booth.analysis
-            .yellowOpportunity ===
-          "HIGH"
-      ),
+    assembly,
+    booths: sliced,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+    },
+    thresholds: {
+      strongGreenPercent: settings.strongGreenPercent,
+      moderateGreenPercent: settings.moderateGreenPercent,
+      highOpportunityYellow: settings.highOpportunityYellow,
+      mediumOpportunityYellow: settings.mediumOpportunityYellow,
+      highVerification: settings.highVerification,
+      mediumVerification: settings.mediumVerification,
+    },
   };
 }
 
@@ -589,24 +672,34 @@ export async function getOpportunityBooths(
 // CONFIDENCE BOOTHS
 // ========================================
 
-export async function getConfidenceBooths(
-  input: BoothAnalysisFilterInput
-) {
-  const result =
-    await getAllBoothAnalytics(
-      input
-    );
+export async function getConfidenceBooths(input: BoothAnalysisFilterInput) {
+  const { page, limit, search } = input;
+  const skip = (page - 1) * limit;
+  const { assembly, settings, analytics } = await computeAllAssemblyBooths(search);
+
+  const filtered = analytics.filter(
+    (booth) => booth.analysis.dataConfidence === "HIGH"
+  );
+  const total = filtered.length;
+  const sliced = filtered.slice(skip, skip + limit);
 
   return {
-    ...result,
-
-    booths:
-      result.booths.filter(
-        (booth) =>
-          booth.analysis
-            .dataConfidence ===
-          "HIGH"
-      ),
+    assembly,
+    booths: sliced,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+    },
+    thresholds: {
+      strongGreenPercent: settings.strongGreenPercent,
+      moderateGreenPercent: settings.moderateGreenPercent,
+      highOpportunityYellow: settings.highOpportunityYellow,
+      mediumOpportunityYellow: settings.mediumOpportunityYellow,
+      highVerification: settings.highVerification,
+      mediumVerification: settings.mediumVerification,
+    },
   };
 }
 

@@ -149,6 +149,80 @@ export async function getAnalyticsOverview() {
     }),
   ]);
 
+  const activeBooths = await prisma.booth.findMany({
+    where: { assemblyId: assembly.id },
+    select: {
+      id: true,
+      _count: {
+        select: { voters: true },
+      },
+    },
+  });
+
+  const boothIds = activeBooths.map((b) => b.id);
+
+  const [boothClassificationCounts, boothVerificationCounts] = await Promise.all([
+    prisma.voter.groupBy({
+      by: ["boothId", "classification"],
+      where: { boothId: { in: boothIds } },
+      _count: { _all: true },
+    }),
+    prisma.voter.groupBy({
+      by: ["boothId", "verification"],
+      where: { boothId: { in: boothIds } },
+      _count: { _all: true },
+    }),
+  ]);
+
+  let strongBooths = 0;
+  let moderateBooths = 0;
+  let weakBooths = 0;
+  let highOpportunityBooths = 0;
+  let highConfidenceBooths = 0;
+
+  for (const b of activeBooths) {
+    const totalBoothVoters = b._count.voters;
+    if (totalBoothVoters === 0) {
+      weakBooths++;
+      continue;
+    }
+
+    const bGreen =
+      boothClassificationCounts.find(
+        (c) => c.boothId === b.id && c.classification === "GREEN"
+      )?._count._all || 0;
+
+    const bYellow =
+      boothClassificationCounts.find(
+        (c) => c.boothId === b.id && c.classification === "YELLOW"
+      )?._count._all || 0;
+
+    const bVerified =
+      boothVerificationCounts.find(
+        (c) => c.boothId === b.id && c.verification === "VERIFIED"
+      )?._count._all || 0;
+
+    const greenPct = (bGreen / totalBoothVoters) * 100;
+    const yellowPct = (bYellow / totalBoothVoters) * 100;
+    const verPct = (bVerified / totalBoothVoters) * 100;
+
+    if (greenPct >= settings.strongGreenPercent) {
+      strongBooths++;
+    } else if (greenPct >= settings.moderateGreenPercent) {
+      moderateBooths++;
+    } else {
+      weakBooths++;
+    }
+
+    if (yellowPct >= settings.highOpportunityYellow) {
+      highOpportunityBooths++;
+    }
+
+    if (verPct >= settings.highVerification) {
+      highConfidenceBooths++;
+    }
+  }
+
   const classified =
     green +
     yellow +
@@ -305,6 +379,12 @@ export async function getAnalyticsOverview() {
           assignedBooths,
           totalBooths
         ),
+
+      strong: strongBooths,
+      moderate: moderateBooths,
+      weak: weakBooths,
+      opportunity: highOpportunityBooths,
+      highConfidence: highConfidenceBooths,
     },
 
     analysis: {
