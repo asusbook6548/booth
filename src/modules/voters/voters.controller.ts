@@ -12,6 +12,7 @@ import {
   voterListQuerySchema,
   updateVoterSchema,
 } from "./voters.validation";
+import { formatErrorMessage } from "../../utils/error-formatter.js";
 
 /**
  * GET /api/voters
@@ -43,13 +44,11 @@ export async function getAllVoters(
       error
     );
 
+    const message = formatErrorMessage(error, "Failed to fetch voters");
+
     return res.status(400).json({
       success: false,
-
-      message:
-        error instanceof Error
-          ? error.message
-          : "Failed to fetch voters",
+      message,
     });
   }
 }
@@ -70,10 +69,8 @@ export async function getOneVoter(
 
     return res.status(200).json({
       success: true,
-
       message:
         "Voter fetched successfully",
-
       data: voter,
     });
   } catch (error) {
@@ -82,13 +79,11 @@ export async function getOneVoter(
       error
     );
 
+    const message = formatErrorMessage(error, "Voter not found");
+
     return res.status(404).json({
       success: false,
-
-      message:
-        error instanceof Error
-          ? error.message
-          : "Voter not found",
+      message,
     });
   }
 }
@@ -104,7 +99,6 @@ export async function updateOneVoter(
     if (!req.user) {
       return res.status(401).json({
         success: false,
-
         message:
           "Authentication required",
       });
@@ -127,10 +121,8 @@ export async function updateOneVoter(
 
     return res.status(200).json({
       success: true,
-
       message:
         "Voter updated successfully",
-
       data: voter,
     });
   } catch (error) {
@@ -139,13 +131,11 @@ export async function updateOneVoter(
       error
     );
 
+    const message = formatErrorMessage(error, "Failed to update voter");
+
     return res.status(400).json({
       success: false,
-
-      message:
-        error instanceof Error
-          ? error.message
-          : "Failed to update voter",
+      message,
     });
   }
 }

@@ -16,6 +16,7 @@ import {
   updateVolunteerSchema,
   assignBoothSchema,
 } from "./volunteer.validation";
+import { formatErrorMessage } from "../../utils/error-formatter.js";
 
 /**
  * POST /api/volunteers
@@ -56,12 +57,11 @@ export async function create(
       error
     );
 
+    const message = formatErrorMessage(error, "Failed to create volunteer");
+
     return res.status(400).json({
       success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "Failed to create volunteer",
+      message,
     });
   }
 }
@@ -89,10 +89,11 @@ export async function getAll(
       error
     );
 
+    const message = formatErrorMessage(error, "Failed to fetch volunteers");
+
     return res.status(500).json({
       success: false,
-      message:
-        "Failed to fetch volunteers",
+      message,
     });
   }
 }
@@ -123,12 +124,11 @@ export async function getOne(
       error
     );
 
+    const message = formatErrorMessage(error, "Volunteer not found");
+
     return res.status(404).json({
       success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "Volunteer not found",
+      message,
     });
   }
 }
@@ -176,12 +176,11 @@ export async function update(
       error
     );
 
+    const message = formatErrorMessage(error, "Failed to update volunteer");
+
     return res.status(400).json({
       success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "Failed to update volunteer",
+      message,
     });
   }
 }
@@ -229,12 +228,11 @@ export async function assign(
       error
     );
 
+    const message = formatErrorMessage(error, "Failed to assign booth");
+
     return res.status(400).json({
       success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "Failed to assign booth",
+      message,
     });
   }
 }
@@ -276,12 +274,11 @@ export async function unassign(
       error
     );
 
+    const message = formatErrorMessage(error, "Failed to unassign booth");
+
     return res.status(400).json({
       success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "Failed to unassign booth",
+      message,
     });
   }
 }

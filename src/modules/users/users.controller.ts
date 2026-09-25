@@ -23,6 +23,7 @@ import {
   updateUserStatus,
   updateUserPassword,
 } from "./users.service.js";
+import { formatErrorMessage } from "../../utils/error-formatter.js";
 
 /**
  * POST /api/users
@@ -54,10 +55,7 @@ export async function createNewUser(
       error
     );
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Failed to create user";
+    const message = formatErrorMessage(error, "Failed to create user");
 
     return res.status(400).json({
       success: false,
@@ -92,12 +90,11 @@ export async function listUsers(
       error
     );
 
+    const message = formatErrorMessage(error, "Failed to fetch users");
+
     return res.status(400).json({
       success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "Failed to fetch users",
+      message,
     });
   }
 }
@@ -125,10 +122,7 @@ export async function getUser(
       error
     );
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Failed to fetch user";
+    const message = formatErrorMessage(error, "Failed to fetch user");
 
     return res.status(
       message === "User not found"
@@ -173,12 +167,11 @@ export async function editUser(
       error
     );
 
+    const message = formatErrorMessage(error, "Failed to update user");
+
     return res.status(400).json({
       success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "Failed to update user",
+      message,
     });
   }
 }
@@ -215,12 +208,11 @@ export async function changeUserStatus(
       error
     );
 
+    const message = formatErrorMessage(error, "Failed to update user status");
+
     return res.status(400).json({
       success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "Failed to update user status",
+      message,
     });
   }
 }
@@ -255,12 +247,11 @@ export async function changeUserPassword(
       error
     );
 
+    const message = formatErrorMessage(error, "Failed to update password");
+
     return res.status(400).json({
       success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "Failed to update password",
+      message,
     });
   }
 }

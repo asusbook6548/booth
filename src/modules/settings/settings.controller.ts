@@ -15,6 +15,7 @@ import {
   getSettings,
   updateSettings,
 } from "./settings.service.js";
+import { formatErrorMessage } from "../../utils/error-formatter.js";
 
 /**
  * GET /api/settings
@@ -205,12 +206,11 @@ export async function updateSystemSettings(
       error
     );
 
+    const message = formatErrorMessage(error, "Failed to update system settings");
+
     return res.status(400).json({
       success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "Failed to update system settings",
+      message,
     });
   }
 }

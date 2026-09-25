@@ -5,6 +5,7 @@ import { loginVolunteer } from "./volunteer-auth.service";
 import {
   volunteerLoginSchema,
 } from "./volunteer-auth.validation";
+import { formatErrorMessage } from "../../utils/error-formatter.js";
 
 export async function login(
   req: Request,
@@ -23,14 +24,12 @@ export async function login(
       data: result,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Volunteer login error:", error);
+    const message = formatErrorMessage(error, "Volunteer login failed");
 
     return res.status(401).json({
       success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "Volunteer login failed",
+      message,
     });
   }
 }

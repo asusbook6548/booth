@@ -5,6 +5,7 @@ import { AuthRequest } from "../../middleware/auth.middleware";
 import {
   importVoterFile as importVoterFileService,
 } from "./voter-import.service";
+import { formatErrorMessage } from "../../utils/error-formatter.js";
 
 /**
  * POST /api/voters/import
@@ -93,13 +94,11 @@ export async function importVoterFile(
       error
     );
 
+    const message = formatErrorMessage(error, "Voter import failed");
+
     return res.status(400).json({
       success: false,
-
-      message:
-        error instanceof Error
-          ? error.message
-          : "Voter import failed",
+      message,
     });
   }
 }

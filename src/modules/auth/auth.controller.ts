@@ -3,6 +3,8 @@ import { loginAdmin } from "./auth.service";
 import { loginSchema } from "./auth.validation";
 import { AuthRequest } from "../../middleware/auth.middleware";
 
+import { formatErrorMessage } from "../../utils/error-formatter.js";
+
 export async function login(req: Request, res: Response) {
   try {
     const input = loginSchema.parse(req.body);
@@ -15,18 +17,12 @@ export async function login(req: Request, res: Response) {
       data: result,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Login error:", error);
+    const message = formatErrorMessage(error, "Invalid email or password");
 
-    if (error instanceof Error) {
-      return res.status(401).json({
-        success: false,
-        message: error.message,
-      });
-    }
-
-    return res.status(500).json({
+    return res.status(401).json({
       success: false,
-      message: "Internal server error",
+      message,
     });
   }
 }

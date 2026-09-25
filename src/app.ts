@@ -21,6 +21,7 @@ import settingsRoutes from "./modules/settings/settings.routes.js";
 
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./config/swagger.js";
+import { formatErrorMessage } from "./utils/error-formatter.js";
 
 const app = express();
 
@@ -240,6 +241,31 @@ app.use(
       message: "Route not found",
     });
   },
+);
+
+// ========================================
+// GLOBAL ERROR HANDLER
+// ========================================
+
+app.use(
+  (
+    err: unknown,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction
+  ) => {
+    console.error("Unhandled server error:", err);
+    const message = formatErrorMessage(err, "Internal server error");
+    const status =
+      (err as { status?: number; statusCode?: number })?.status ||
+      (err as { status?: number; statusCode?: number })?.statusCode ||
+      500;
+
+    return res.status(status >= 400 && status < 600 ? status : 500).json({
+      success: false,
+      message,
+    });
+  }
 );
 
 export default app;

@@ -18,6 +18,7 @@ import {
   updateClassification,
   bulkUpdateClassification,
 } from "./classification.service.js";
+import { formatErrorMessage } from "../../utils/error-formatter.js";
 
 // ========================================
 // SUMMARY
@@ -45,13 +46,11 @@ export async function getSummary(
       error
     );
 
+    const message = formatErrorMessage(error, "Failed to fetch classification summary");
+
     return res.status(400).json({
       success: false,
-
-      message:
-        error instanceof Error
-          ? error.message
-          : "Failed to fetch classification summary",
+      message,
     });
   }
 }
@@ -89,13 +88,11 @@ export async function getVoters(
       error
     );
 
+    const message = formatErrorMessage(error, "Failed to fetch voters");
+
     return res.status(400).json({
       success: false,
-
-      message:
-        error instanceof Error
-          ? error.message
-          : "Failed to fetch voters",
+      message,
     });
   }
 }
@@ -146,13 +143,11 @@ export async function updateVoterClassification(
       error
     );
 
+    const message = formatErrorMessage(error, "Failed to update classification");
+
     return res.status(400).json({
       success: false,
-
-      message:
-        error instanceof Error
-          ? error.message
-          : "Failed to update classification",
+      message,
     });
   }
 }
@@ -199,13 +194,11 @@ export async function bulkClassification(
       error
     );
 
+    const message = formatErrorMessage(error, "Failed to update classifications");
+
     return res.status(400).json({
       success: false,
-
-      message:
-        error instanceof Error
-          ? error.message
-          : "Failed to update classifications",
+      message,
     });
   }
 }
