@@ -30,7 +30,6 @@ router.use(authMiddleware);
  *             required:
  *               - boothNumber
  *               - name
- *               - assemblyId
  *             properties:
  *               boothNumber:
  *                 type: string

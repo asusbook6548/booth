@@ -4,7 +4,7 @@ export const createBoothSchema = z.object({
   boothNumber: z.string().min(1).max(20).trim(),
   name: z.string().min(1).max(150).trim(),
   village: z.string().max(150).trim().optional(),
-  assemblyId: z.string().uuid(),
+  assemblyId: z.string().uuid().optional(),
 });
 
 export const updateBoothSchema = z.object({

@@ -22,9 +22,18 @@ const boothSelect = {
  * Strip password from a volunteer object before returning to client
  */
 function stripPassword<
-  T extends { password?: string }
->(volunteer: T): Omit<T, "password"> {
+  T extends { password?: string; booth?: { name?: string } | null }
+>(volunteer: T) {
   const { password: _password, ...safe } = volunteer;
+  if (safe.booth && typeof safe.booth === "object") {
+    return {
+      ...safe,
+      booth: {
+        ...safe.booth,
+        boothName: (safe.booth as { name?: string }).name ?? "",
+      },
+    };
+  }
   return safe;
 }
 
