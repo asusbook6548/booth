@@ -18,6 +18,7 @@ import analyticsRoutes from "./modules/analytics/analytics.routes.js";
 import boothAnalysisRoutes from "./modules/booth-analysis/booth-analysis.routes.js";
 import reportsRoutes from "./modules/reports/reports.routes.js";
 import settingsRoutes from "./modules/settings/settings.routes.js";
+import auditLogsRoutes from "./modules/audit-logs/audit-logs.routes.js";
 
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./config/swagger.js";
@@ -58,6 +59,23 @@ app.use(
 // ========================================
 
 app.use(morgan("dev"));
+
+// API Response Logger Middleware: logs status and payload for every API response
+app.use((req, res, next) => {
+  const start = Date.now();
+  const originalJson = res.json.bind(res);
+
+  res.json = (body: any) => {
+    const duration = Date.now() - start;
+    console.log(
+      `[Backend API Response] ${req.method} ${req.originalUrl} | Status: ${res.statusCode} | Duration: ${duration}ms\nResponse Body:`,
+      body
+    );
+    return originalJson(body);
+  };
+
+  next();
+});
 
 // ========================================
 // HEALTH
@@ -218,6 +236,15 @@ app.use(
 app.use(
   "/api/settings",
   settingsRoutes,
+);
+
+// ========================================
+// AUDIT LOGS
+// ========================================
+
+app.use(
+  "/api/audit-logs",
+  auditLogsRoutes,
 );
 
 // ========================================

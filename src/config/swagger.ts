@@ -89,6 +89,12 @@ const apiFiles = [
     process.cwd(),
     `${baseDir}/modules/settings/settings.routes.${ext}`
   ),
+
+  // Audit Logs
+  path.resolve(
+    process.cwd(),
+    `${baseDir}/modules/audit-logs/audit-logs.routes.${ext}`
+  ),
 ];
 
 const options: swaggerJSDoc.Options = {
@@ -171,6 +177,10 @@ const options: swaggerJSDoc.Options = {
         name: "Settings",
         description:
           "Configurable system analysis thresholds",
+      },
+      {
+        name: "Audit Logs",
+        description: "Admin audit log tracking and monitoring",
       },
     ],
 
@@ -418,6 +428,122 @@ const options: swaggerJSDoc.Options = {
             "limit",
             "total",
             "totalPages",
+          ],
+        },
+
+        // ==========================================
+        // AUDIT LOG
+        // ==========================================
+
+        AuditLog: {
+          type: "object",
+          description:
+            "Audit log entry recording administrative or volunteer activity. Passwords and credentials are never exposed.",
+          properties: {
+            id: {
+              type: "string",
+              format: "uuid",
+              example: "550e8400-e29b-41d4-a716-446655440000",
+            },
+            action: {
+              type: "string",
+              example: "VOTER_UPDATED",
+            },
+            entity: {
+              type: "string",
+              example: "VOTER",
+            },
+            entityId: {
+              type: "string",
+              nullable: true,
+              example: "550e8400-e29b-41d4-a716-446655440000",
+            },
+            details: {
+              type: "object",
+              nullable: true,
+              description: "Action-specific details payload",
+            },
+            userId: {
+              type: "string",
+              format: "uuid",
+              nullable: true,
+            },
+            volunteerId: {
+              type: "string",
+              format: "uuid",
+              nullable: true,
+            },
+            voterId: {
+              type: "string",
+              format: "uuid",
+              nullable: true,
+            },
+            user: {
+              type: "object",
+              nullable: true,
+              properties: {
+                id: {
+                  type: "string",
+                  format: "uuid",
+                },
+                name: {
+                  type: "string",
+                },
+                email: {
+                  type: "string",
+                  format: "email",
+                },
+                role: {
+                  type: "string",
+                  enum: ["ADMIN"],
+                },
+              },
+            },
+            volunteer: {
+              type: "object",
+              nullable: true,
+              properties: {
+                id: {
+                  type: "string",
+                  format: "uuid",
+                },
+                name: {
+                  type: "string",
+                },
+                mobile: {
+                  type: "string",
+                },
+                status: {
+                  type: "string",
+                  enum: ["ACTIVE", "INACTIVE"],
+                },
+              },
+            },
+            voter: {
+              type: "object",
+              nullable: true,
+              properties: {
+                id: {
+                  type: "string",
+                },
+                epic: {
+                  type: "string",
+                },
+                name: {
+                  type: "string",
+                },
+              },
+            },
+            createdAt: {
+              type: "string",
+              format: "date-time",
+            },
+          },
+          required: [
+            "id",
+            "action",
+            "entity",
+            "createdAt",
           ],
         },
       },
