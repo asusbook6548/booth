@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { AuthRequest } from "../../middleware/auth.middleware";
 import {
   createAssembly,
   getAssemblies,
@@ -10,11 +11,11 @@ import {
   updateAssemblySchema,
 } from "./assembly.validation";
 
-export async function create(req: Request, res: Response) {
+export async function create(req: AuthRequest, res: Response) {
   try {
     const input = createAssemblySchema.parse(req.body);
 
-    const assembly = await createAssembly(input);
+    const assembly = await createAssembly(input, req.user?.id);
 
     return res.status(201).json({
       success: true,
@@ -73,13 +74,14 @@ export async function getOne(req: Request, res: Response) {
   }
 }
 
-export async function update(req: Request, res: Response) {
+export async function update(req: AuthRequest, res: Response) {
   try {
     const input = updateAssemblySchema.parse(req.body);
 
     const assembly = await updateAssembly(
       String(req.params.id),
-      input
+      input,
+      req.user?.id
     );
 
     return res.status(200).json({

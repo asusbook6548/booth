@@ -1,5 +1,6 @@
 import { prisma } from "../../config/prisma";
 import { hashPassword } from "../../utils/password";
+import { getSingleActiveAssembly } from "../../utils/single-assembly.js";
 
 import {
   CreateVolunteerInput,
@@ -306,6 +307,11 @@ export async function assignBooth(
 
   if (!booth) {
     throw new Error("Booth not found");
+  }
+
+  const activeAssembly = await getSingleActiveAssembly();
+  if (booth.assemblyId !== activeAssembly.id) {
+    throw new Error("Booth does not belong to the active assembly");
   }
 
   /**

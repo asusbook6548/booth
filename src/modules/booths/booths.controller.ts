@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { AuthRequest } from "../../middleware/auth.middleware";
 
 import {
   createBooth,
@@ -12,11 +13,11 @@ import {
   updateBoothSchema,
 } from "./booths.validation";
 
-export async function create(req: Request, res: Response) {
+export async function create(req: AuthRequest, res: Response) {
   try {
     const input = createBoothSchema.parse(req.body);
 
-    const booth = await createBooth(input);
+    const booth = await createBooth(input, req.user?.id);
 
     return res.status(201).json({
       success: true,
@@ -86,13 +87,14 @@ export async function getOne(req: Request, res: Response) {
   }
 }
 
-export async function update(req: Request, res: Response) {
+export async function update(req: AuthRequest, res: Response) {
   try {
     const input = updateBoothSchema.parse(req.body);
 
     const booth = await updateBooth(
       String(req.params.id),
-      input
+      input,
+      req.user?.id
     );
 
     return res.status(200).json({

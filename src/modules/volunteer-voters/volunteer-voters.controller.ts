@@ -36,7 +36,10 @@ export async function getVoters(
   } catch (error) {
     console.error(error);
 
-    return res.status(400).json({
+    const status =
+      (error as { statusCode?: number })?.statusCode || 400;
+
+    return res.status(status).json({
       success: false,
       message:
         error instanceof Error
@@ -76,7 +79,10 @@ export async function updateVoter(
   } catch (error) {
     console.error(error);
 
-    return res.status(400).json({
+    const status =
+      (error as { statusCode?: number })?.statusCode || 400;
+
+    return res.status(status).json({
       success: false,
       message:
         error instanceof Error

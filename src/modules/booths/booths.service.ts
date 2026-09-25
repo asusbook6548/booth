@@ -1,26 +1,29 @@
 import { prisma } from "../../config/prisma";
+import { getSingleActiveAssembly } from "../../utils/single-assembly.js";
 import {
   CreateBoothInput,
   UpdateBoothInput,
 } from "./booths.validation";
 
-export async function createBooth(input: CreateBoothInput) {
-  // Check assembly
-  const assembly = await prisma.assembly.findUnique({
-    where: {
-      id: input.assemblyId,
-    },
-  });
+export async function createBooth(
+  input: CreateBoothInput,
+  adminUserId?: string
+) {
+  const activeAssembly = await getSingleActiveAssembly();
 
-  if (!assembly) {
-    throw new Error("Assembly not found");
+  if (input.assemblyId && input.assemblyId !== activeAssembly.id) {
+    throw new Error(
+      "Specified assembly is not the active assembly. V3.1.1 supports only one active assembly"
+    );
   }
+
+  const effectiveAssemblyId = activeAssembly.id;
 
   // Check duplicate booth number inside assembly
   const existingBooth = await prisma.booth.findUnique({
     where: {
       assemblyId_boothNumber: {
-        assemblyId: input.assemblyId,
+        assemblyId: effectiveAssemblyId,
         boothNumber: input.boothNumber,
       },
     },
@@ -32,12 +35,12 @@ export async function createBooth(input: CreateBoothInput) {
     );
   }
 
-  return prisma.booth.create({
+  const createdBooth = await prisma.booth.create({
     data: {
       boothNumber: input.boothNumber,
       name: input.name,
       village: input.village,
-      assemblyId: input.assemblyId,
+      assemblyId: effectiveAssemblyId,
     },
     include: {
       assembly: true,
@@ -48,15 +51,34 @@ export async function createBooth(input: CreateBoothInput) {
       },
     },
   });
+
+  if (adminUserId) {
+    await prisma.auditLog.create({
+      data: {
+        action: "BOOTH_CREATED",
+        entity: "BOOTH",
+        entityId: createdBooth.id,
+        userId: adminUserId,
+        details: {
+          boothNumber: createdBooth.boothNumber,
+          name: createdBooth.name,
+          assemblyId: createdBooth.assemblyId,
+        },
+      },
+    });
+  }
+
+  return createdBooth;
 }
 
 export async function getBooths(assemblyId?: string) {
+  const activeAssembly = await getSingleActiveAssembly();
+  const effectiveAssemblyId = assemblyId || activeAssembly.id;
+
   return prisma.booth.findMany({
-    where: assemblyId
-      ? {
-          assemblyId,
-        }
-      : undefined,
+    where: {
+      assemblyId: effectiveAssemblyId,
+    },
 
     orderBy: {
       boothNumber: "asc",
@@ -91,6 +113,8 @@ export async function getBooths(assemblyId?: string) {
 }
 
 export async function getBoothById(id: string) {
+  const activeAssembly = await getSingleActiveAssembly();
+
   const booth = await prisma.booth.findUnique({
     where: {
       id,
@@ -116,8 +140,8 @@ export async function getBoothById(id: string) {
     },
   });
 
-  if (!booth) {
-    throw new Error("Booth not found");
+  if (!booth || booth.assemblyId !== activeAssembly.id) {
+    throw new Error("Booth not found in active assembly");
   }
 
   return booth;
@@ -125,16 +149,19 @@ export async function getBoothById(id: string) {
 
 export async function updateBooth(
   id: string,
-  input: UpdateBoothInput
+  input: UpdateBoothInput,
+  adminUserId?: string
 ) {
+  const activeAssembly = await getSingleActiveAssembly();
+
   const existingBooth = await prisma.booth.findUnique({
     where: {
       id,
     },
   });
 
-  if (!existingBooth) {
-    throw new Error("Booth not found");
+  if (!existingBooth || existingBooth.assemblyId !== activeAssembly.id) {
+    throw new Error("Booth not found in active assembly");
   }
 
   // If booth number is being changed,
@@ -157,7 +184,7 @@ export async function updateBooth(
     }
   }
 
-  return prisma.booth.update({
+  const updatedBooth = await prisma.booth.update({
     where: {
       id,
     },
@@ -183,4 +210,18 @@ export async function updateBooth(
       },
     },
   });
+
+  if (adminUserId) {
+    await prisma.auditLog.create({
+      data: {
+        action: "BOOTH_UPDATED",
+        entity: "BOOTH",
+        entityId: id,
+        userId: adminUserId,
+        details: JSON.parse(JSON.stringify(input)),
+      },
+    });
+  }
+
+  return updatedBooth;
 }

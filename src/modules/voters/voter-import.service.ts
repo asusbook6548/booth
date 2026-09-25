@@ -1,7 +1,9 @@
+import fs from "fs";
 import * as XLSX from "xlsx";
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "../../config/prisma";
+import { getSingleActiveAssembly } from "../../utils/single-assembly.js";
 
 // ========================================
 // EXCEL ROW STRUCTURE
@@ -344,18 +346,15 @@ export async function importVoterFile(
   // CHECK ASSEMBLY
   // ======================================
 
-  const assembly =
-    await prisma.assembly.findUnique({
-      where: {
-        id: assemblyId,
-      },
-    });
+  const activeAssembly = await getSingleActiveAssembly();
 
-  if (!assembly) {
+  if (assemblyId && assemblyId !== activeAssembly.id) {
     throw new Error(
-      "Assembly not found"
+      "Specified assembly is not the active assembly. V3.1.1 supports only one active assembly"
     );
   }
+
+  const effectiveAssemblyId = activeAssembly.id;
 
   // ======================================
   // CREATE IMPORT BATCH
@@ -511,7 +510,7 @@ export async function importVoterFile(
         await prisma.booth.findUnique({
           where: {
             assemblyId_boothNumber: {
-              assemblyId,
+              assemblyId: effectiveAssemblyId,
               boothNumber,
             },
           },
@@ -533,7 +532,7 @@ export async function importVoterFile(
         await prisma.voter.findUnique({
           where: {
             assemblyId_epic: {
-              assemblyId,
+              assemblyId: effectiveAssemblyId,
               epic,
             },
           },
@@ -623,7 +622,7 @@ export async function importVoterFile(
             row.pollingStation
           ),
 
-        assemblyId,
+        assemblyId: effectiveAssemblyId,
 
         boothId:
           booth.id,
@@ -751,7 +750,7 @@ export async function importVoterFile(
       details: {
         fileName,
 
-        assemblyId,
+        assemblyId: effectiveAssemblyId,
 
         totalRows,
 
@@ -765,6 +764,18 @@ export async function importVoterFile(
       },
     },
   });
+
+  // ======================================
+  // CLEAN UP UPLOADED TEMP FILE
+  // ======================================
+
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  } catch (unlinkErr) {
+    console.error("Failed to delete temp import file:", unlinkErr);
+  }
 
   // ======================================
   // RETURN RESULT

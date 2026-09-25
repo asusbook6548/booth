@@ -627,60 +627,81 @@ export async function getBoothAnalytics(
     }),
   ]);
 
-  const boothAnalytics =
-    await Promise.all(
-      booths.map(
-        async (booth) => {
-          const [
-            green,
-            yellow,
-            red,
-            black,
-            unclassified,
-            verified,
-          ] = await Promise.all([
-            prisma.voter.count({
-              where: {
-                boothId: booth.id,
-                classification: "GREEN",
-              },
-            }),
+  const boothIds = booths.map((b) => b.id);
 
-            prisma.voter.count({
-              where: {
-                boothId: booth.id,
-                classification: "YELLOW",
-              },
-            }),
+  const [classificationGroups, verificationGroups] = await Promise.all([
+    prisma.voter.groupBy({
+      by: ["boothId", "classification"],
+      where: {
+        boothId: { in: boothIds },
+      },
+      _count: {
+        _all: true,
+      },
+    }),
+    prisma.voter.groupBy({
+      by: ["boothId", "verification"],
+      where: {
+        boothId: { in: boothIds },
+      },
+      _count: {
+        _all: true,
+      },
+    }),
+  ]);
 
-            prisma.voter.count({
-              where: {
-                boothId: booth.id,
-                classification: "RED",
-              },
-            }),
+  const statsByBooth = new Map<
+    string,
+    {
+      green: number;
+      yellow: number;
+      red: number;
+      black: number;
+      unclassified: number;
+      verified: number;
+    }
+  >();
 
-            prisma.voter.count({
-              where: {
-                boothId: booth.id,
-                classification: "BLACK",
-              },
-            }),
+  for (const id of boothIds) {
+    statsByBooth.set(id, {
+      green: 0,
+      yellow: 0,
+      red: 0,
+      black: 0,
+      unclassified: 0,
+      verified: 0,
+    });
+  }
 
-            prisma.voter.count({
-              where: {
-                boothId: booth.id,
-                classification: null,
-              },
-            }),
+  for (const group of classificationGroups) {
+    const stats = statsByBooth.get(group.boothId);
+    if (!stats) continue;
+    const count = group._count._all;
+    if (group.classification === "GREEN") stats.green = count;
+    else if (group.classification === "YELLOW") stats.yellow = count;
+    else if (group.classification === "RED") stats.red = count;
+    else if (group.classification === "BLACK") stats.black = count;
+    else if (group.classification === null) stats.unclassified = count;
+  }
 
-            prisma.voter.count({
-              where: {
-                boothId: booth.id,
-                verification: "VERIFIED",
-              },
-            }),
-          ]);
+  for (const group of verificationGroups) {
+    const stats = statsByBooth.get(group.boothId);
+    if (!stats) continue;
+    if (group.verification === "VERIFIED") {
+      stats.verified = group._count._all;
+    }
+  }
+
+  const boothAnalytics = booths.map((booth) => {
+    const stats = statsByBooth.get(booth.id) || {
+      green: 0,
+      yellow: 0,
+      red: 0,
+      black: 0,
+      unclassified: 0,
+      verified: 0,
+    };
+    const { green, yellow, red, black, unclassified, verified } = stats;
 
           const totalVoters =
             booth._count.voters;
@@ -826,8 +847,7 @@ export async function getBoothAnalytics(
             },
           };
         }
-      )
-    );
+      );
 
   return {
     assembly,

@@ -266,6 +266,348 @@ const options: swaggerJSDoc.Options = {
         },
 
         // ==========================================
+        // VOLUNTEER
+        // ==========================================
+
+        Volunteer: {
+          type: "object",
+          description: "Volunteer entity. Password is never returned.",
+          properties: {
+            id: {
+              type: "string",
+              format: "uuid",
+              example: "550e8400-e29b-41d4-a716-446655440000",
+            },
+            name: {
+              type: "string",
+              example: "Rahul Kumar",
+            },
+            mobile: {
+              type: "string",
+              example: "9876543210",
+            },
+            status: {
+              type: "string",
+              enum: ["ACTIVE", "INACTIVE"],
+              example: "ACTIVE",
+            },
+            createdAt: {
+              type: "string",
+              format: "date-time",
+            },
+            updatedAt: {
+              type: "string",
+              format: "date-time",
+            },
+            booth: {
+              type: "object",
+              nullable: true,
+              properties: {
+                id: { type: "string", format: "uuid" },
+                boothNumber: { type: "string", example: "12A" },
+                name: { type: "string", example: "Booth 12A" },
+                village: { type: "string", nullable: true, example: "Model Town" },
+                assemblyId: { type: "string", format: "uuid" },
+              },
+            },
+          },
+          required: ["id", "name", "mobile", "status", "createdAt", "updatedAt"],
+        },
+
+        // ==========================================
+        // ASSEMBLY
+        // ==========================================
+
+        Assembly: {
+          type: "object",
+          description: "Assembly constituency entity.",
+          properties: {
+            id: {
+              type: "string",
+              format: "uuid",
+              example: "550e8400-e29b-41d4-a716-446655440000",
+            },
+            number: {
+              type: "string",
+              example: "123",
+            },
+            name: {
+              type: "string",
+              example: "Model Town",
+            },
+            district: {
+              type: "string",
+              example: "North Delhi",
+            },
+            electionYear: {
+              type: "integer",
+              example: 2025,
+            },
+            isActive: {
+              type: "boolean",
+              example: true,
+            },
+            createdAt: {
+              type: "string",
+              format: "date-time",
+            },
+            updatedAt: {
+              type: "string",
+              format: "date-time",
+            },
+            _count: {
+              type: "object",
+              nullable: true,
+              properties: {
+                booths: { type: "integer", example: 10 },
+                voters: { type: "integer", example: 12000 },
+              },
+            },
+          },
+          required: ["id", "number", "name", "district", "electionYear", "isActive", "createdAt", "updatedAt"],
+        },
+
+        // ==========================================
+        // BOOTH
+        // ==========================================
+
+        Booth: {
+          type: "object",
+          description: "Polling booth entity.",
+          properties: {
+            id: {
+              type: "string",
+              format: "uuid",
+              example: "550e8400-e29b-41d4-a716-446655440000",
+            },
+            boothNumber: {
+              type: "string",
+              example: "12A",
+            },
+            name: {
+              type: "string",
+              example: "Primary School Room 1",
+            },
+            village: {
+              type: "string",
+              nullable: true,
+              example: "Model Town Sector 4",
+            },
+            assemblyId: {
+              type: "string",
+              format: "uuid",
+              example: "550e8400-e29b-41d4-a716-446655440000",
+            },
+            volunteerId: {
+              type: "string",
+              format: "uuid",
+              nullable: true,
+            },
+            status: {
+              type: "string",
+              enum: ["NOT_STARTED", "VOTING_STARTED", "PROBLEM"],
+              example: "NOT_STARTED",
+            },
+            createdAt: {
+              type: "string",
+              format: "date-time",
+            },
+            updatedAt: {
+              type: "string",
+              format: "date-time",
+            },
+            assembly: {
+              type: "object",
+              nullable: true,
+              properties: {
+                id: { type: "string", format: "uuid" },
+                number: { type: "string" },
+                name: { type: "string" },
+                district: { type: "string" },
+              },
+            },
+            volunteer: {
+              type: "object",
+              nullable: true,
+              properties: {
+                id: { type: "string", format: "uuid" },
+                name: { type: "string" },
+                mobile: { type: "string" },
+                status: { type: "string" },
+              },
+            },
+            _count: {
+              type: "object",
+              nullable: true,
+              properties: {
+                voters: { type: "integer", example: 1250 },
+              },
+            },
+          },
+          required: ["id", "boothNumber", "name", "assemblyId", "status", "createdAt", "updatedAt"],
+        },
+
+        // ==========================================
+        // VOTER
+        // ==========================================
+
+        Voter: {
+          type: "object",
+          description: "Voter entity.",
+          properties: {
+            id: {
+              type: "string",
+              format: "uuid",
+              example: "550e8400-e29b-41d4-a716-446655440000",
+            },
+            epic: {
+              type: "string",
+              example: "ABC1234567",
+            },
+            name: {
+              type: "string",
+              example: "Amit Kumar",
+            },
+            nameHindi: {
+              type: "string",
+              nullable: true,
+              example: "अमित कुमार",
+            },
+            fatherName: {
+              type: "string",
+              nullable: true,
+              example: "Rajesh Kumar",
+            },
+            fatherNameHindi: {
+              type: "string",
+              nullable: true,
+              example: "राजेश कुमार",
+            },
+            motherName: {
+              type: "string",
+              nullable: true,
+            },
+            husbandName: {
+              type: "string",
+              nullable: true,
+            },
+            gender: {
+              type: "string",
+              nullable: true,
+              example: "MALE",
+            },
+            age: {
+              type: "integer",
+              nullable: true,
+              example: 34,
+            },
+            dateOfBirth: {
+              type: "string",
+              nullable: true,
+              example: "1990-01-01",
+            },
+            houseNumber: {
+              type: "string",
+              nullable: true,
+              example: "45-B",
+            },
+            village: {
+              type: "string",
+              nullable: true,
+              example: "Sector 4",
+            },
+            assemblyNumber: {
+              type: "string",
+              nullable: true,
+              example: "123",
+            },
+            partNumber: {
+              type: "string",
+              nullable: true,
+              example: "12A",
+            },
+            partSerial: {
+              type: "string",
+              nullable: true,
+              example: "45",
+            },
+            pollingStationName: {
+              type: "string",
+              nullable: true,
+              example: "Primary School",
+            },
+            assemblyId: {
+              type: "string",
+              format: "uuid",
+            },
+            boothId: {
+              type: "string",
+              format: "uuid",
+            },
+            mobile: {
+              type: "string",
+              nullable: true,
+              example: "9876543210",
+            },
+            verification: {
+              type: "string",
+              enum: ["VERIFIED", "UNVERIFIED"],
+              example: "UNVERIFIED",
+            },
+            classification: {
+              type: "string",
+              enum: ["GREEN", "YELLOW", "RED", "BLACK"],
+              nullable: true,
+              example: "GREEN",
+            },
+            voteStatus: {
+              type: "string",
+              enum: ["PENDING", "DONE"],
+              example: "PENDING",
+            },
+            createdAt: {
+              type: "string",
+              format: "date-time",
+            },
+            updatedAt: {
+              type: "string",
+              format: "date-time",
+            },
+            booth: {
+              type: "object",
+              nullable: true,
+              properties: {
+                id: { type: "string", format: "uuid" },
+                boothNumber: { type: "string" },
+                name: { type: "string" },
+                village: { type: "string", nullable: true },
+              },
+            },
+            assembly: {
+              type: "object",
+              nullable: true,
+              properties: {
+                id: { type: "string", format: "uuid" },
+                number: { type: "string" },
+                name: { type: "string" },
+                district: { type: "string" },
+              },
+            },
+          },
+          required: [
+            "id",
+            "epic",
+            "name",
+            "assemblyId",
+            "boothId",
+            "verification",
+            "voteStatus",
+            "createdAt",
+            "updatedAt",
+          ],
+        },
+
+        // ==========================================
         // SYSTEM SETTINGS
         // ==========================================
 

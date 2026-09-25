@@ -1,4 +1,5 @@
 import { prisma } from "../../config/prisma";
+import { getSingleActiveAssembly } from "../../utils/single-assembly.js";
 
 import {
   UpdateVoterInput,
@@ -35,12 +36,12 @@ export async function getVoters(
     gender,
   } = input;
 
+  const activeAssembly = await getSingleActiveAssembly();
+  const effectiveAssemblyId = assemblyId || activeAssembly.id;
   const skip = (page - 1) * limit;
 
   const where = {
-    ...(assemblyId && {
-      assemblyId,
-    }),
+    assemblyId: effectiveAssemblyId,
 
     ...(boothId && {
       boothId,
@@ -153,6 +154,8 @@ export async function getVoters(
 export async function getVoterById(
   id: string
 ) {
+  const activeAssembly = await getSingleActiveAssembly();
+
   const voter =
     await prisma.voter.findUnique({
       where: {
@@ -187,9 +190,9 @@ export async function getVoterById(
       },
     });
 
-  if (!voter) {
+  if (!voter || voter.assemblyId !== activeAssembly.id) {
     throw new Error(
-      "Voter not found"
+      "Voter not found in active assembly"
     );
   }
 
@@ -206,6 +209,8 @@ export async function updateVoter(
   input: UpdateVoterInput,
   adminUserId: string
 ) {
+  const activeAssembly = await getSingleActiveAssembly();
+
   const existing =
     await prisma.voter.findUnique({
       where: {
@@ -213,9 +218,9 @@ export async function updateVoter(
       },
     });
 
-  if (!existing) {
+  if (!existing || existing.assemblyId !== activeAssembly.id) {
     throw new Error(
-      "Voter not found"
+      "Voter not found in active assembly"
     );
   }
 
@@ -252,14 +257,7 @@ export async function updateVoter(
             newValue:
               input.classification,
 
-            /**
-             * ClassificationHistory.changedById
-             * currently references Volunteer.
-             *
-             * Admin changes are therefore not
-             * stored in this field.
-             */
-            changedById: null,
+            changedByUserId: adminUserId,
           },
         }
       );

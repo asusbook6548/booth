@@ -21,11 +21,15 @@ export async function getMyBoothVoters(
   });
 
   if (!volunteer) {
-    throw new Error("Volunteer not found");
+    const error = new Error("Volunteer not found");
+    (error as { statusCode?: number }).statusCode = 401;
+    throw error;
   }
 
   if (!volunteer.booth) {
-    throw new Error("No booth is assigned to this volunteer");
+    const error = new Error("No booth is assigned to this volunteer");
+    (error as { statusCode?: number }).statusCode = 403;
+    throw error;
   }
 
   const { page, limit, search, classification, verification, voteStatus } =
@@ -110,6 +114,7 @@ export async function updateMyBoothVoter(
   const volunteer = await prisma.volunteer.findUnique({
     where: { id: volunteerId },
     select: {
+      id: true,
       booth: {
         select: {
           id: true,
@@ -119,22 +124,40 @@ export async function updateMyBoothVoter(
   });
 
   if (!volunteer) {
-    throw new Error("Volunteer not found");
+    const error = new Error("Volunteer not found");
+    (error as { statusCode?: number }).statusCode = 401;
+    throw error;
   }
 
   if (!volunteer.booth) {
-    throw new Error("No booth is assigned to this volunteer");
+    const error = new Error("No booth is assigned to this volunteer");
+    (error as { statusCode?: number }).statusCode = 403;
+    throw error;
   }
 
-  const voter = await prisma.voter.findFirst({
-    where: {
-      id: voterId,
-      boothId: volunteer.booth.id,
+  const anyVoter = await prisma.voter.findUnique({
+    where: { id: voterId },
+    select: {
+      id: true,
+      boothId: true,
+      classification: true,
+      verification: true,
+      voteStatus: true,
     },
   });
 
-  if (!voter) {
-    throw new Error("Voter not found in your assigned booth");
+  if (!anyVoter) {
+    const error = new Error("Voter not found");
+    (error as { statusCode?: number }).statusCode = 404;
+    throw error;
+  }
+
+  if (anyVoter.boothId !== volunteer.booth.id) {
+    const error = new Error(
+      "Access denied: Voter does not belong to your assigned booth"
+    );
+    (error as { statusCode?: number }).statusCode = 403;
+    throw error;
   }
 
   const updatedVoter = await prisma.voter.update({
@@ -144,16 +167,37 @@ export async function updateMyBoothVoter(
     data: input,
   });
 
-  if (input.classification !== undefined) {
+  if (
+    input.classification !== undefined &&
+    input.classification !== anyVoter.classification
+  ) {
     await prisma.classificationHistory.create({
       data: {
         voterId,
-        oldValue: voter.classification,
+        oldValue: anyVoter.classification,
         newValue: input.classification,
         changedById: volunteerId,
       },
     });
   }
+
+  await prisma.auditLog.create({
+    data: {
+      action: "VOLUNTEER_VOTER_UPDATED",
+      entity: "VOTER",
+      entityId: voterId,
+      volunteerId,
+      voterId,
+      details: {
+        previous: {
+          classification: anyVoter.classification,
+          verification: anyVoter.verification,
+          voteStatus: anyVoter.voteStatus,
+        },
+        updated: input,
+      },
+    },
+  });
 
   return updatedVoter;
 }
