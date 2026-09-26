@@ -78,6 +78,7 @@ export async function createUser(
         entityId: newUser.id,
         userId: createdByUserId,
         details: {
+          name: newUser.name,
           email: newUser.email,
           role: newUser.role,
           status: newUser.status,
@@ -265,6 +266,9 @@ export async function updateUser(
       userId: changedByUserId,
 
       details: {
+        name: updated.name,
+        email: updated.email,
+        role: updated.role,
         changedFields: Object.keys(input),
       },
     },
@@ -384,6 +388,9 @@ export async function updateUserStatus(
       userId: changedByUserId,
 
       details: {
+        name: updated.name,
+        email: updated.email,
+        role: updated.role,
         oldStatus: existing.status,
         newStatus: input.status,
       },
@@ -409,6 +416,9 @@ export async function updateUserPassword(
 
       select: {
         id: true,
+        name: true,
+        email: true,
+        role: true,
       },
     });
 
@@ -440,6 +450,9 @@ export async function updateUserPassword(
       userId: changedByUserId,
 
       details: {
+        name: existing.name,
+        email: existing.email,
+        role: existing.role,
         changedBy:
           changedByUserId === userId
             ? "SELF"

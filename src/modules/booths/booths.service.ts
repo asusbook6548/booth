@@ -218,7 +218,11 @@ export async function updateBooth(
         entity: "BOOTH",
         entityId: id,
         userId: adminUserId,
-        details: JSON.parse(JSON.stringify(input)),
+        details: {
+          boothNumber: updatedBooth.boothNumber,
+          name: updatedBooth.name,
+          ...JSON.parse(JSON.stringify(input)),
+        },
       },
     });
   }

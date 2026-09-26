@@ -103,6 +103,22 @@ export async function getAuditLogs(filters: AuditLogFilterInput) {
           },
         },
       },
+      {
+        voter: {
+          name: {
+            contains: term,
+            mode: "insensitive",
+          },
+        },
+      },
+      {
+        voter: {
+          epic: {
+            contains: term,
+            mode: "insensitive",
+          },
+        },
+      },
     ];
   }
 
@@ -154,8 +170,124 @@ export async function getAuditLogs(filters: AuditLogFilterInput) {
     }),
   ]);
 
+  // Collect entity IDs by entity type to resolve target records
+  const targetUserIds = new Set<string>();
+  const targetVolunteerIds = new Set<string>();
+  const targetVoterIds = new Set<string>();
+  const targetBoothIds = new Set<string>();
+  const targetAssemblyIds = new Set<string>();
+
+  for (const log of auditLogs) {
+    if (!log.entityId) continue;
+    if (log.entity === "USER") {
+      targetUserIds.add(log.entityId);
+    } else if (log.entity === "VOLUNTEER" && !log.volunteer) {
+      targetVolunteerIds.add(log.entityId);
+    } else if (log.entity === "VOTER" && !log.voter) {
+      targetVoterIds.add(log.entityId);
+    } else if (log.entity === "BOOTH") {
+      targetBoothIds.add(log.entityId);
+    } else if (log.entity === "ASSEMBLY") {
+      targetAssemblyIds.add(log.entityId);
+    }
+  }
+
+  const [targetUsers, targetVolunteers, targetVoters, targetBooths, targetAssemblies] = await Promise.all([
+    targetUserIds.size > 0
+      ? prisma.user.findMany({
+          where: { id: { in: Array.from(targetUserIds) } },
+          select: { id: true, name: true, email: true, role: true },
+        })
+      : [],
+    targetVolunteerIds.size > 0
+      ? prisma.volunteer.findMany({
+          where: { id: { in: Array.from(targetVolunteerIds) } },
+          select: { id: true, name: true, mobile: true, status: true },
+        })
+      : [],
+    targetVoterIds.size > 0
+      ? prisma.voter.findMany({
+          where: { id: { in: Array.from(targetVoterIds) } },
+          select: { id: true, epic: true, name: true },
+        })
+      : [],
+    targetBoothIds.size > 0
+      ? prisma.booth.findMany({
+          where: { id: { in: Array.from(targetBoothIds) } },
+          select: { id: true, boothNumber: true, name: true },
+        })
+      : [],
+    targetAssemblyIds.size > 0
+      ? prisma.assembly.findMany({
+          where: { id: { in: Array.from(targetAssemblyIds) } },
+          select: { id: true, name: true, code: true },
+        })
+      : [],
+  ]);
+
+  const targetUserMap = new Map(targetUsers.map((u) => [u.id, u]));
+  const targetVolunteerMap = new Map(targetVolunteers.map((v) => [v.id, v]));
+  const targetVoterMap = new Map(targetVoters.map((v) => [v.id, v]));
+  const targetBoothMap = new Map(targetBooths.map((b) => [b.id, b]));
+  const targetAssemblyMap = new Map(targetAssemblies.map((a) => [a.id, a]));
+
+  const enrichedLogs = auditLogs.map((log) => {
+    const rawDetails = (log.details as Record<string, unknown> | null) || {};
+    let enrichedDetails = { ...rawDetails };
+    let targetUser = null;
+    let volunteer = log.volunteer;
+    let voter = log.voter;
+    let targetBooth = null;
+    let targetAssembly = null;
+
+    if (log.entity === "USER" && log.entityId && targetUserMap.has(log.entityId)) {
+      targetUser = targetUserMap.get(log.entityId)!;
+      enrichedDetails = {
+        name: targetUser.name,
+        email: targetUser.email,
+        role: targetUser.role,
+        ...enrichedDetails,
+      };
+    }
+
+    if (log.entity === "VOLUNTEER" && log.entityId && !volunteer && targetVolunteerMap.has(log.entityId)) {
+      volunteer = targetVolunteerMap.get(log.entityId)!;
+    }
+
+    if (log.entity === "VOTER" && log.entityId && !voter && targetVoterMap.has(log.entityId)) {
+      voter = targetVoterMap.get(log.entityId)!;
+    }
+
+    if (log.entity === "BOOTH" && log.entityId && targetBoothMap.has(log.entityId)) {
+      targetBooth = targetBoothMap.get(log.entityId)!;
+      if (!enrichedDetails.boothNumber) {
+        enrichedDetails.boothNumber = targetBooth.boothNumber;
+      }
+      if (!enrichedDetails.name && targetBooth.name) {
+        enrichedDetails.name = targetBooth.name;
+      }
+    }
+
+    if (log.entity === "ASSEMBLY" && log.entityId && targetAssemblyMap.has(log.entityId)) {
+      targetAssembly = targetAssemblyMap.get(log.entityId)!;
+      if (!enrichedDetails.name) {
+        enrichedDetails.name = targetAssembly.name;
+      }
+    }
+
+    return {
+      ...log,
+      details: enrichedDetails,
+      volunteer,
+      voter,
+      targetUser,
+      targetBooth,
+      targetAssembly,
+    };
+  });
+
   return {
-    data: auditLogs,
+    data: enrichedLogs,
     pagination: {
       page,
       limit,

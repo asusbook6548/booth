@@ -389,6 +389,8 @@ export async function updateClassification(
 
             entityId: voter.id,
 
+            voterId: voter.id,
+
             userId: adminUserId,
 
             details: {
