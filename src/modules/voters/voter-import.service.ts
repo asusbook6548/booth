@@ -1,4 +1,3 @@
-import fs from "fs";
 import * as XLSX from "xlsx";
 import { Prisma } from "@prisma/client";
 
@@ -209,12 +208,13 @@ function toPrismaJson(
 // ========================================
 
 export function parseVoterExcel(
-  filePath: string
+  fileBuffer: Buffer
 ): RawExcelVoter[] {
   const workbook =
-    XLSX.readFile(
-      filePath,
+    XLSX.read(
+      fileBuffer,
       {
+        type: "buffer",
         cellDates: false,
       }
     );
@@ -336,7 +336,7 @@ export function parseVoterExcel(
 // ========================================
 
 export async function importVoterFile(
-  filePath: string,
+  fileBuffer: Buffer,
   fileName: string,
   fileType: string,
   uploadedById: string,
@@ -379,7 +379,7 @@ export async function importVoterFile(
   try {
     rows =
       parseVoterExcel(
-        filePath
+        fileBuffer
       );
   } catch (error) {
     await prisma.importBatch.update({
@@ -764,18 +764,6 @@ export async function importVoterFile(
       },
     },
   });
-
-  // ======================================
-  // CLEAN UP UPLOADED TEMP FILE
-  // ======================================
-
-  try {
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-  } catch (unlinkErr) {
-    console.error("Failed to delete temp import file:", unlinkErr);
-  }
 
   // ======================================
   // RETURN RESULT

@@ -69,7 +69,7 @@ export async function importVoterFile(
      */
     const result =
       await importVoterFileService(
-        req.file.path,
+        req.file.buffer,
 
         req.file.originalname,
 

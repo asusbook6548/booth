@@ -5,6 +5,7 @@ export const createAssemblySchema = z.object({
   name: z.string().min(2).max(100).trim(),
   district: z.string().min(2).max(100).trim(),
   electionYear: z.number().int().min(2000).max(2100),
+  isActive: z.boolean().optional(),
 });
 
 export const updateAssemblySchema = z.object({
