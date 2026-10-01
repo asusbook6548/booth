@@ -10,9 +10,9 @@ async function startServer() {
 
     console.log("Database connected successfully");
 
-    const server = app.listen(PORT, () => {
+    const server = app.listen(Number(PORT), "0.0.0.0", () => {
       console.log(`Booth Command API running on port ${PORT}`);
-      console.log(`http://localhost:${PORT}`);
+      console.log(`http://0.0.0.0:${PORT}`);
     });
 
     const shutdown = async (signal: string) => {

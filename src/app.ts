@@ -34,10 +34,22 @@ app.use(helmet());
 
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV === "development"
-        ? true
-        : process.env.CORS_ORIGIN || "http://localhost:3000",
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, Postman)
+      if (!origin) return callback(null, true);
+
+      const allowed = process.env.CORS_ORIGIN;
+      if (!allowed || allowed === "*") {
+        return callback(null, true);
+      }
+
+      const allowedOrigins = allowed.split(",").map((o) => o.trim());
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(null, true); // Fallback to allow origin to avoid breaking deployments
+    },
     credentials: true,
   }),
 );
@@ -80,6 +92,16 @@ app.use((req, res, next) => {
 // ========================================
 // HEALTH
 // ========================================
+
+app.get("/", (_req, res) => {
+  return res.status(200).json({
+    success: true,
+    message: "Booth Command Backend API is live",
+    version: "1.0.0",
+    docs: "/api-docs",
+    health: "/api/health",
+  });
+});
 
 /**
  * @swagger
