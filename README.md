@@ -92,7 +92,7 @@ Configure these environment variables in your hosting provider's dashboard or se
 | **Branch** | `main` (or your production branch) |
 | **Root Directory** | `backend` *(Critical: Leave empty only if repo root is the backend)* |
 | **Runtime** | `Node` |
-| **Build Command** | `npm install && npx prisma generate && npm run build` |
+| **Build Command** | `npm install && npm run build` |
 | **Start Command** | `npx prisma migrate deploy && npm run start` |
 | **Instance Type** | Free / Starter |
 
@@ -150,7 +150,7 @@ services:
     rootDir: backend
     plan: starter
     region: singapore
-    buildCommand: npm install && npx prisma generate && npm run build
+    buildCommand: npm install && npm run build
     startCommand: npx prisma migrate deploy && npm run start
     healthCheckPath: /api/health
     envVars:
@@ -197,7 +197,7 @@ databases:
 4. Go to the **Build** tab:
    - **Build Command**:
      ```bash
-     npm install && npx prisma generate && npm run build
+     npm install && npm run build
      ```
 5. Go to the **Deploy** tab:
    - **Custom Start Command**:
@@ -364,16 +364,13 @@ CORS_ORIGIN="https://admin.yourdomain.com"
 #### 5. Run Database Migrations & Initial Seed
 
 ```bash
-# Generate Prisma Client
-npx prisma generate
-
 # Apply all migrations to PostgreSQL
 npx prisma migrate deploy
 
 # Run seed to create default system admin
 npx tsx prisma/seed.ts
 
-# Build TypeScript to production JavaScript (dist folder)
+# Build TypeScript to production JavaScript (runs prisma generate + tsc)
 npm run build
 ```
 
@@ -513,7 +510,6 @@ If you are using Hostinger Cloud Hosting or Business Web Hosting with the **Node
      ```bash
      cd ~/domains/yourdomain.com/public_html/booth-command/backend
      npm install
-     npx prisma generate
      npx prisma migrate deploy
      npx tsx prisma/seed.ts
      npm run build
@@ -553,8 +549,7 @@ RUN npm ci
 # Copy source code
 COPY src ./src
 
-# Generate Prisma Client & compile TypeScript
-RUN npx prisma generate
+# Generate Prisma Client & compile TypeScript (npm run build does both)
 RUN npm run build
 
 # ==========================================
