@@ -110,8 +110,12 @@ const options: swaggerJSDoc.Options = {
 
     servers: [
       {
-        url: "http://localhost:5000",
-        description: "Local development server",
+        url: "https://booth-command-production-122a.up.railway.app",
+        description: "Production Server",
+      },
+      {
+        url: "/",
+        description: "Local Server",
       },
     ],
 
