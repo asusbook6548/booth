@@ -3,6 +3,7 @@ import { VolunteerAuthRequest } from "../../middleware/volunteer-auth.middleware
 import {
   updateMyBoothVoter,
   getMyBoothVoters,
+  getMyBoothVoterById,
 } from "./volunteer-voters.service";
 import {
   updateVoterSchema,
@@ -91,3 +92,43 @@ export async function updateVoter(
     });
   }
 }
+
+export async function getOneVoter(
+  req: VolunteerAuthRequest,
+  res: Response
+) {
+  try {
+    if (!req.volunteer) {
+      return res.status(401).json({
+        success: false,
+        message: "Volunteer authentication required",
+      });
+    }
+
+    const voterId = String(req.params.id);
+
+    const voter = await getMyBoothVoterById(
+      req.volunteer.id,
+      voterId
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Voter fetched successfully",
+      data: voter,
+    });
+  } catch (error) {
+    console.error(error);
+
+    const status =
+      (error as { statusCode?: number })?.statusCode || 400;
+
+    return res.status(status).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch voter",
+    });
+  }
+}

@@ -201,3 +201,70 @@ export async function updateMyBoothVoter(
 
   return updatedVoter;
 }
+
+export async function getMyBoothVoterById(
+  volunteerId: string,
+  voterId: string
+) {
+  const volunteer = await prisma.volunteer.findUnique({
+    where: { id: volunteerId },
+    select: {
+      id: true,
+      booth: {
+        select: {
+          id: true,
+        },
+      },
+    },
+  });
+
+  if (!volunteer) {
+    const error = new Error("Volunteer not found");
+    (error as { statusCode?: number }).statusCode = 401;
+    throw error;
+  }
+
+  if (!volunteer.booth) {
+    const error = new Error("No booth is assigned to this volunteer");
+    (error as { statusCode?: number }).statusCode = 403;
+    throw error;
+  }
+
+  const voter = await prisma.voter.findUnique({
+    where: { id: voterId },
+    include: {
+      booth: {
+        select: {
+          id: true,
+          boothNumber: true,
+          name: true,
+          village: true,
+        },
+      },
+      assembly: {
+        select: {
+          id: true,
+          number: true,
+          name: true,
+          district: true,
+        },
+      },
+    },
+  });
+
+  if (!voter) {
+    const error = new Error("Voter not found");
+    (error as { statusCode?: number }).statusCode = 404;
+    throw error;
+  }
+
+  if (voter.boothId !== volunteer.booth.id) {
+    const error = new Error(
+      "Access denied: Voter does not belong to your assigned booth"
+    );
+    (error as { statusCode?: number }).statusCode = 403;
+    throw error;
+  }
+
+  return voter;
+}

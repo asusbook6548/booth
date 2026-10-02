@@ -2,6 +2,7 @@ import { Router } from "express";
 import { volunteerAuthMiddleware } from "../../middleware/volunteer-auth.middleware";
 import {
   getVoters,
+  getOneVoter,
   updateVoter,
 } from "./volunteer-voters.controller";
 
@@ -179,6 +180,58 @@ router.get("/", getVoters);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
+/**
+ * @swagger
+ * /api/volunteer-voters/{id}:
+ *   get:
+ *     summary: Get single voter profile in volunteer's booth
+ *     tags: [Volunteer Voters]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Voter UUID
+ *     responses:
+ *       200:
+ *         description: Voter fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Voter fetched successfully
+ *                 data:
+ *                   $ref: '#/components/schemas/Voter'
+ *       401:
+ *         description: Volunteer authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: Forbidden - Voter does not belong to volunteer's assigned booth or volunteer inactive
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: Voter not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get("/:id", getOneVoter);
 router.patch("/:id", updateVoter);
 
 export default router;
