@@ -284,6 +284,81 @@ function cleanPartSerial(value: unknown): string | null {
   return str.length > 0 ? str : null;
 }
 
+function getPollingStationValue(
+  row: Record<string, unknown>,
+  aliases: string[]
+): string | null {
+  // 1. Direct and canonical alias lookup
+  const direct = cleanString(getRowValue(row, aliases));
+  if (direct) return direct;
+
+  // 2. Fuzzy column header fallback
+  for (const [key, val] of Object.entries(row)) {
+    if (val === undefined || val === null || val === "") continue;
+    const lowerKey = key.toLowerCase();
+
+    // Skip numeric ID / serial / mobile columns
+    if (
+      lowerKey.includes("partno") ||
+      lowerKey.includes("part_no") ||
+      lowerKey.includes("partnumber") ||
+      lowerKey.includes("boothno") ||
+      lowerKey.includes("booth_no") ||
+      lowerKey.includes("serial") ||
+      lowerKey.includes("srno") ||
+      lowerKey.includes("slno") ||
+      lowerKey.includes("acno") ||
+      lowerKey.includes("epic") ||
+      lowerKey.includes("mobile") ||
+      lowerKey.includes("phone")
+    ) {
+      continue;
+    }
+
+    if (
+      lowerKey.includes("polling") ||
+      lowerKey.includes("station") ||
+      lowerKey.includes("kendra") ||
+      lowerKey.includes("kendr") ||
+      lowerKey.includes("sthal") ||
+      lowerKey.includes("मतदान") ||
+      lowerKey.includes("ps_name") ||
+      lowerKey.includes("psname") ||
+      lowerKey.includes("booth") ||
+      lowerKey.includes("part_name") ||
+      lowerKey.includes("partname") ||
+      lowerKey.includes("section")
+    ) {
+      const cleanVal = cleanString(val);
+      if (cleanVal) return cleanVal;
+    }
+  }
+
+  // 3. Value-based pattern fallback (e.g. PRA.VI., VIDYALAYA, SCHOOL, BHAWAN)
+  for (const [key, val] of Object.entries(row)) {
+    if (typeof val === "string") {
+      const upper = val.toUpperCase();
+      if (
+        upper.includes("PRA.VI.") ||
+        upper.includes("PRA. VI.") ||
+        upper.includes("VIDYALAYA") ||
+        upper.includes("SCHOOL") ||
+        upper.includes("COLLEGE") ||
+        upper.includes("PRATHAMIK") ||
+        upper.includes("MADHYAMIK") ||
+        upper.includes("KENDRA") ||
+        upper.includes("BHAWAN") ||
+        upper.includes("MAHAVIDYALAYA")
+      ) {
+        const cleanVal = cleanString(val);
+        if (cleanVal) return cleanVal;
+      }
+    }
+  }
+
+  return null;
+}
+
 // ========================================
 // READ EXCEL / XLS / CSV
 // ========================================
@@ -326,6 +401,10 @@ export function parseVoterExcel(
         raw: false,
       }
     );
+
+  if (rows.length > 0) {
+    console.log("Excel columns detected:", Object.keys(rows[0] || {}));
+  }
 
   return rows.map(
     (row) => ({
@@ -457,16 +536,91 @@ export function parseVoterExcel(
         ),
 
       pollingStation:
-        cleanString(
-          getRowValue(row, [
+        getPollingStationValue(row, [
             "Polling Station No - Name",
             "Polling Station No-Name",
+            "Polling Station No & Name",
+            "Polling Station No and Name",
             "pollingStation",
             "pollingStationName",
-            "boothName",
+            "polling_station_name",
             "polling_station",
-          ])
-        ),
+            "pollingStationNoName",
+            "polling_station_no_name",
+            "pollingStationNoAndName",
+            "polling_station_no_and_name",
+            "Polling Station",
+            "Part No - Name",
+            "Part No-Name",
+            "Part No & Name",
+            "Part No and Name",
+            "part_no_name",
+            "part_no_and_name",
+            "partNoName",
+            "partName",
+            "part_name",
+            "part_name_en",
+            "Part Name",
+            "Part Details",
+            "part_details",
+            "Section No - Name",
+            "Section No-Name",
+            "Section No & Name",
+            "Section No and Name",
+            "section_no_name",
+            "section_no_and_name",
+            "sectionName",
+            "section_name",
+            "Section Name",
+            "ps_name",
+            "psName",
+            "PS Name",
+            "PS_NAME",
+            "ps_name_en",
+            "ps_name_v1",
+            "ps_name_hindi",
+            "ps_no_name",
+            "ps_num_name",
+            "ps_detail",
+            "ps_details",
+            "PS Details",
+            "ps_building_name",
+            "ps_building",
+            "psBuilding",
+            "ps_address",
+            "psAddress",
+            "ps",
+            "boothName",
+            "booth_name",
+            "booth",
+            "stationName",
+            "station_name",
+            "station",
+            "centreName",
+            "centerName",
+            "centre_name",
+            "center_name",
+            "location",
+            "schoolName",
+            "school_name",
+            "buildingName",
+            "building_name",
+            "मतदान केंद्र का नाम",
+            "मतदान केंद्र का नाम व पता",
+            "मतदान केंद्र का नाम एवं पता",
+            "मतदान केन्द्र का नाम",
+            "मतदान केन्द्र का नाम व पता",
+            "मतदान केंद्र",
+            "मतदान केन्द्र",
+            "मतदान स्थल",
+            "मतदान स्थल का नाम",
+            "मतदान केंद्र भवन",
+            "मतदान केंद्र भवन का नाम",
+            "भाग का नाम",
+            "अनुभाग का नाम",
+            "बूथ का नाम",
+            "बूथ नाम",
+          ]),
     })
   );
 }
@@ -582,8 +736,13 @@ export async function importVoterFile(
   // 100 voters from Booth 25 → 1 Booth record.
   //
 
+  interface CachedBooth {
+    id: string;
+    name: string;
+  }
+
   const boothCache =
-    new Map<string, string>();
+    new Map<string, CachedBooth>();
 
   // ======================================
   // PROCESS ROWS
@@ -685,47 +844,27 @@ export async function importVoterFile(
       // in the same part/booth.
       //
 
-      let boothId = boothCache.get(boothNumber);
+      let cachedBooth = boothCache.get(boothNumber);
 
-      if (!boothId) {
-        const booth = await prisma.booth.upsert({
+      if (!cachedBooth) {
+        let booth = await prisma.booth.findUnique({
           where: {
             assemblyId_boothNumber: {
               assemblyId,
               boothNumber,
             },
           },
-          update: {},
-          create: {
-            assemblyId,
-            boothNumber,
-            name: pollingStationName || `Booth ${boothNumber}`,
-          },
         });
 
-        // Track whether this was a new booth
-        const wasExisting = await prisma.booth.findFirst({
-          where: {
-            assemblyId,
-            boothNumber,
-          },
-          select: { createdAt: true, updatedAt: true },
-        });
+        if (!booth) {
+          booth = await prisma.booth.create({
+            data: {
+              assemblyId,
+              boothNumber,
+              name: pollingStationName || `Booth ${boothNumber}`,
+            },
+          });
 
-        // We can't tell upsert created vs found easily,
-        // so we track using the cache: first time we see
-        // a boothNumber = potentially new.
-        boothId = booth.id;
-        boothCache.set(boothNumber, boothId);
-
-        // Check if booth was just created:
-        // upsert.create path means updatedAt ≈ createdAt
-        const isNew =
-          Math.abs(
-            booth.createdAt.getTime() - booth.updatedAt.getTime()
-          ) < 2000;
-
-        if (isNew) {
           newBoothsCreated++;
 
           // Audit log for automatic booth creation
@@ -743,8 +882,33 @@ export async function importVoterFile(
               },
             },
           });
+        } else if (
+          pollingStationName &&
+          booth.name !== pollingStationName
+        ) {
+          booth = await prisma.booth.update({
+            where: { id: booth.id },
+            data: { name: pollingStationName },
+          });
         }
+
+        cachedBooth = { id: booth.id, name: booth.name };
+        boothCache.set(boothNumber, cachedBooth);
+      } else if (
+        pollingStationName &&
+        cachedBooth.name !== pollingStationName
+      ) {
+        const updatedBooth = await prisma.booth.update({
+          where: { id: cachedBooth.id },
+          data: { name: pollingStationName },
+        });
+        cachedBooth = { id: updatedBooth.id, name: updatedBooth.name };
+        boothCache.set(boothNumber, cachedBooth);
       }
+
+      const boothId = cachedBooth.id;
+      const resolvedPollingStationName =
+        pollingStationName || cachedBooth.name || `Booth ${boothNumber}`;
 
       validRows++;
 
@@ -827,7 +991,8 @@ export async function importVoterFile(
             row.partSerial
           ),
 
-        pollingStationName,
+        pollingStationName:
+          resolvedPollingStationName,
 
         // Always from server — NEVER from client/Excel
         assemblyId,
