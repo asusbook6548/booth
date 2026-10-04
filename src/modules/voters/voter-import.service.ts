@@ -537,90 +537,90 @@ export function parseVoterExcel(
 
       pollingStation:
         getPollingStationValue(row, [
-            "Polling Station No - Name",
-            "Polling Station No-Name",
-            "Polling Station No & Name",
-            "Polling Station No and Name",
-            "pollingStation",
-            "pollingStationName",
-            "polling_station_name",
-            "polling_station",
-            "pollingStationNoName",
-            "polling_station_no_name",
-            "pollingStationNoAndName",
-            "polling_station_no_and_name",
-            "Polling Station",
-            "Part No - Name",
-            "Part No-Name",
-            "Part No & Name",
-            "Part No and Name",
-            "part_no_name",
-            "part_no_and_name",
-            "partNoName",
-            "partName",
-            "part_name",
-            "part_name_en",
-            "Part Name",
-            "Part Details",
-            "part_details",
-            "Section No - Name",
-            "Section No-Name",
-            "Section No & Name",
-            "Section No and Name",
-            "section_no_name",
-            "section_no_and_name",
-            "sectionName",
-            "section_name",
-            "Section Name",
-            "ps_name",
-            "psName",
-            "PS Name",
-            "PS_NAME",
-            "ps_name_en",
-            "ps_name_v1",
-            "ps_name_hindi",
-            "ps_no_name",
-            "ps_num_name",
-            "ps_detail",
-            "ps_details",
-            "PS Details",
-            "ps_building_name",
-            "ps_building",
-            "psBuilding",
-            "ps_address",
-            "psAddress",
-            "ps",
-            "boothName",
-            "booth_name",
-            "booth",
-            "stationName",
-            "station_name",
-            "station",
-            "centreName",
-            "centerName",
-            "centre_name",
-            "center_name",
-            "location",
-            "schoolName",
-            "school_name",
-            "buildingName",
-            "building_name",
-            "मतदान केंद्र का नाम",
-            "मतदान केंद्र का नाम व पता",
-            "मतदान केंद्र का नाम एवं पता",
-            "मतदान केन्द्र का नाम",
-            "मतदान केन्द्र का नाम व पता",
-            "मतदान केंद्र",
-            "मतदान केन्द्र",
-            "मतदान स्थल",
-            "मतदान स्थल का नाम",
-            "मतदान केंद्र भवन",
-            "मतदान केंद्र भवन का नाम",
-            "भाग का नाम",
-            "अनुभाग का नाम",
-            "बूथ का नाम",
-            "बूथ नाम",
-          ]),
+          "Polling Station No - Name",
+          "Polling Station No-Name",
+          "Polling Station No & Name",
+          "Polling Station No and Name",
+          "pollingStation",
+          "pollingStationName",
+          "polling_station_name",
+          "polling_station",
+          "pollingStationNoName",
+          "polling_station_no_name",
+          "pollingStationNoAndName",
+          "polling_station_no_and_name",
+          "Polling Station",
+          "Part No - Name",
+          "Part No-Name",
+          "Part No & Name",
+          "Part No and Name",
+          "part_no_name",
+          "part_no_and_name",
+          "partNoName",
+          "partName",
+          "part_name",
+          "part_name_en",
+          "Part Name",
+          "Part Details",
+          "part_details",
+          "Section No - Name",
+          "Section No-Name",
+          "Section No & Name",
+          "Section No and Name",
+          "section_no_name",
+          "section_no_and_name",
+          "sectionName",
+          "section_name",
+          "Section Name",
+          "ps_name",
+          "psName",
+          "PS Name",
+          "PS_NAME",
+          "ps_name_en",
+          "ps_name_v1",
+          "ps_name_hindi",
+          "ps_no_name",
+          "ps_num_name",
+          "ps_detail",
+          "ps_details",
+          "PS Details",
+          "ps_building_name",
+          "ps_building",
+          "psBuilding",
+          "ps_address",
+          "psAddress",
+          "ps",
+          "boothName",
+          "booth_name",
+          "booth",
+          "stationName",
+          "station_name",
+          "station",
+          "centreName",
+          "centerName",
+          "centre_name",
+          "center_name",
+          "location",
+          "schoolName",
+          "school_name",
+          "buildingName",
+          "building_name",
+          "मतदान केंद्र का नाम",
+          "मतदान केंद्र का नाम व पता",
+          "मतदान केंद्र का नाम एवं पता",
+          "मतदान केन्द्र का नाम",
+          "मतदान केन्द्र का नाम व पता",
+          "मतदान केंद्र",
+          "मतदान केन्द्र",
+          "मतदान स्थल",
+          "मतदान स्थल का नाम",
+          "मतदान केंद्र भवन",
+          "मतदान केंद्र भवन का नाम",
+          "भाग का नाम",
+          "अनुभाग का नाम",
+          "बूथ का नाम",
+          "बूथ नाम",
+        ]),
     })
   );
 }
@@ -634,15 +634,14 @@ export function parseVoterExcel(
 //
 // Caller must NOT pass assemblyId.
 //
-// Flow:
+// Flow (optimized, same behavior as before):
 //   1. getCurrentAssembly()
 //   2. Parse file (xlsx / xls / csv)
-//   3. For each row:
-//      a. Validate required fields
-//      b. Upsert Booth (auto-create if missing)
-//      c. Smart merge Voter (create/update)
-//   4. Save ImportBatch result
-//   5. AuditLog
+//   3. Validate all rows in memory (booth names simulated)
+//   4. Save booths once each (auto-create if missing)
+//   5. Save voters in batches (createMany / parallel updates)
+//   6. Save ImportError rows in bulk
+//   7. Save ImportBatch result + AuditLog
 //
 
 export async function importVoterFile(
@@ -665,15 +664,14 @@ export async function importVoterFile(
   // CREATE IMPORT BATCH
   // ======================================
 
-  const batch =
-    await prisma.importBatch.create({
-      data: {
-        fileName,
-        fileType,
-        uploadedById,
-        status: "REVIEWING",
-      },
-    });
+  const batch = await prisma.importBatch.create({
+    data: {
+      fileName,
+      fileType,
+      uploadedById,
+      status: "REVIEWING",
+    },
+  });
 
   let rows: RawExcelVoter[];
 
@@ -682,25 +680,15 @@ export async function importVoterFile(
   // ======================================
 
   try {
-    rows =
-      parseVoterExcel(
-        fileBuffer
-      );
+    rows = parseVoterExcel(fileBuffer);
   } catch (error) {
     await prisma.importBatch.update({
-      where: {
-        id: batch.id,
-      },
-
-      data: {
-        status: "FAILED",
-      },
+      where: { id: batch.id },
+      data: { status: "FAILED" },
     });
 
     throw new Error(
-      error instanceof Error
-        ? error.message
-        : "Unable to read voter file"
+      error instanceof Error ? error.message : "Unable to read voter file"
     );
   }
 
@@ -708,8 +696,7 @@ export async function importVoterFile(
   // COUNTERS
   // ======================================
 
-  const totalRows =
-    rows.length;
+  const totalRows = rows.length;
 
   let validRows = 0;
   let duplicateRows = 0;
@@ -717,372 +704,373 @@ export async function importVoterFile(
   let importedRows = 0;
   let newBoothsCreated = 0;
 
-  // ======================================
-  // TRACK EPICS (duplicate detection)
-  // ======================================
-
-  const seenEpics =
-    new Set<string>();
+  const seenEpics = new Set<string>();
 
   // ======================================
-  // BOOTH CACHE
+  // ERROR COLLECTION (written in bulk later)
   // ======================================
-  //
-  // Cache boothNumber → boothId so that
-  // multiple voters in the same booth do
-  // NOT trigger repeated DB upserts.
-  //
-  // Also prevents race conditions:
-  // 100 voters from Booth 25 → 1 Booth record.
-  //
 
-  interface CachedBooth {
-    id: string;
-    name: string;
+  interface PendingError {
+    rowNumber: number;
+    rawRow: RawExcelVoter;
+    message: string;
   }
 
-  const boothCache =
-    new Map<string, CachedBooth>();
+  const pendingErrors: PendingError[] = [];
 
   // ======================================
-  // PROCESS ROWS
+  // BOOTH STATE (simulated in memory)
+  // ======================================
+  //
+  // Same rules as before, but no DB call per row:
+  //  - new booth  -> name = pollingStation || "Booth N"
+  //  - later row with a different pollingStation -> name changes
+  //    (last non-empty name wins, exactly like the old per-row update)
+  // DB writes happen once per booth after the validation pass.
+  //
+
+  interface BoothState {
+    id: string | null;
+    name: string;
+    isNew: boolean;
+    dirty: boolean;
+  }
+
+  const booths = new Map<string, BoothState>();
+
+  const existingBooths = await prisma.booth.findMany({
+    where: { assemblyId },
+    select: { id: true, boothNumber: true, name: true },
+  });
+
+  for (const b of existingBooths) {
+    booths.set(b.boothNumber, {
+      id: b.id,
+      name: b.name,
+      isNew: false,
+      dirty: false,
+    });
+  }
+
+  // ======================================
+  // PASS 1: VALIDATE ALL ROWS IN MEMORY
   // ======================================
 
-  for (
-    let index = 0;
-    index < rows.length;
-    index++
-  ) {
-    const row =
-      rows[index]!;
+  interface PreparedVoter {
+    rowNumber: number;
+    rawRow: RawExcelVoter;
+    epic: string;
+    boothNumber: string;
+    mobile: string | null;
+    data: {
+      name: string;
+      nameHindi: string | null;
+      fatherName: string | null;
+      fatherNameHindi: string | null;
+      motherName: string | null;
+      husbandName: string | null;
+      houseNumber: string | null;
+      gender: string | null;
+      age: number | null;
+      dateOfBirth: string | null;
+      assemblyNumber: string | null;
+      partNumber: string | null;
+      partSerial: string | null;
+      pollingStationName: string;
+      assemblyId: string;
+    };
+  }
 
-    const rowNumber =
-      index + 2;
+  const prepared: PreparedVoter[] = [];
+
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index]!;
+    const rowNumber = index + 2;
+
+    const epicValue = cleanString(row.epicNo);
+    const epic = epicValue?.toUpperCase();
+    const name = cleanString(row.epicName);
+    const boothNumber = cleanString(row.partNo);
+    const pollingStationName = cleanString(row.pollingStation);
+
+    // ---- required validation (same messages as before) ----
+
+    let message: string | null = null;
+
+    if (!epic) message = "EPIC number is missing";
+    else if (!name) message = "Voter name is missing";
+    else if (!boothNumber)
+      message = "Part/Booth number (partNo) is missing";
+
+    if (message) {
+      errorRows++;
+      pendingErrors.push({ rowNumber, rawRow: row, message });
+      continue;
+    }
+
+    // ---- duplicate EPIC in current file ----
+
+    if (seenEpics.has(epic!)) {
+      duplicateRows++;
+      continue;
+    }
+    seenEpics.add(epic!);
+
+    // ---- booth state ----
+
+    let state = booths.get(boothNumber!);
+
+    if (!state) {
+      state = {
+        id: null,
+        name: pollingStationName || `Booth ${boothNumber}`,
+        isNew: true,
+        dirty: false,
+      };
+      booths.set(boothNumber!, state);
+    } else if (pollingStationName && state.name !== pollingStationName) {
+      state.name = pollingStationName;
+      state.dirty = true;
+    }
+
+    const resolvedPollingStationName =
+      pollingStationName || state.name || `Booth ${boothNumber}`;
+
+    validRows++;
+
+    prepared.push({
+      rowNumber,
+      rawRow: row,
+      epic: epic!,
+      boothNumber: boothNumber!,
+      mobile: cleanMobile(row.mobileNo),
+      data: {
+        name: name!,
+        nameHindi: cleanString(row.epicName1),
+        fatherName: cleanString(row.fathersOrGuardian),
+        fatherNameHindi: cleanString(row.fathersOrGuardianHindi),
+        motherName: cleanString(row.mothersName),
+        husbandName: cleanString(row.spouseName),
+        houseNumber: cleanString(row.houseNo),
+        gender: cleanString(row.Gender),
+        age: cleanNumber(row.Age),
+        dateOfBirth: cleanString(row.enrollDob),
+        assemblyNumber: cleanString(row.acNo),
+        partNumber: cleanString(row.partNo),
+        partSerial: cleanString(row.partSerial),
+        pollingStationName: resolvedPollingStationName,
+        assemblyId,
+      },
+    });
+  }
+
+  // ======================================
+  // SAVE BOOTHS (once per booth, not per row)
+  // ======================================
+
+  const failedBooths = new Map<string, string>();
+
+  for (const [boothNumber, state] of booths) {
+    try {
+      if (state.isNew) {
+        const booth = await prisma.booth.create({
+          data: {
+            assemblyId,
+            boothNumber,
+            name: state.name,
+          },
+        });
+
+        state.id = booth.id;
+        newBoothsCreated++;
+
+        // Audit log for automatic booth creation
+        await prisma.auditLog.create({
+          data: {
+            action: "BOOTH_AUTO_CREATED",
+            entity: "BOOTH",
+            entityId: booth.id,
+            userId: uploadedById,
+            details: {
+              boothNumber,
+              boothName: booth.name,
+              assemblyId,
+              importFileName: fileName,
+            },
+          },
+        });
+      } else if (state.dirty && state.id) {
+        await prisma.booth.update({
+          where: { id: state.id },
+          data: { name: state.name },
+        });
+      }
+    } catch (error) {
+      failedBooths.set(
+        boothNumber,
+        error instanceof Error ? error.message : "Unknown import error"
+      );
+    }
+  }
+
+  // ======================================
+  // PASS 2: SAVE VOTERS IN BATCHES
+  // ======================================
+
+  const CHUNK_SIZE = 1000;
+  const UPDATE_CONCURRENCY = 10;
+  const startTime = Date.now();
+
+  const recordFailure = (v: PreparedVoter, reason: unknown) => {
+    errorRows++;
+    pendingErrors.push({
+      rowNumber: v.rowNumber,
+      rawRow: v.rawRow,
+      message: reason instanceof Error ? reason.message : "Unknown import error",
+    });
+  };
+
+  // Voters whose booth could not be saved -> error (same as old per-row failure)
+  const savable: PreparedVoter[] = [];
+
+  for (const v of prepared) {
+    const boothError = failedBooths.get(v.boothNumber);
+    if (boothError) {
+      validRows--;
+      recordFailure(v, new Error(boothError));
+    } else {
+      savable.push(v);
+    }
+  }
+
+  console.log(`[Import] Saving ${savable.length} valid voter records...`);
+
+  for (let i = 0; i < savable.length; i += CHUNK_SIZE) {
+    const chunk = savable.slice(i, i + CHUNK_SIZE);
+
+    // One query to find which voters already exist (instead of one per row)
+    const existingRows = await prisma.voter.findMany({
+      where: {
+        assemblyId,
+        epic: { in: chunk.map((v) => v.epic) },
+      },
+      select: { id: true, epic: true },
+    });
+
+    const existingMap = new Map<string, string>();
+    for (const r of existingRows) existingMap.set(r.epic, r.id);
+
+    const toCreate = chunk.filter((v) => !existingMap.has(v.epic));
+    const toUpdate = chunk.filter((v) => existingMap.has(v.epic));
+
+    // ---- NEW VOTERS: one createMany per chunk ----
+    // Excel mobile is used ONLY when creating a new voter.
+
+    const buildCreate = (v: PreparedVoter) => ({
+      epic: v.epic,
+      ...v.data,
+      boothId: booths.get(v.boothNumber)!.id!,
+      mobile: v.mobile,
+      verification: "UNVERIFIED" as const,
+      voteStatus: "PENDING" as const,
+    });
+
+    if (toCreate.length > 0) {
+      try {
+        await prisma.voter.createMany({
+          data: toCreate.map(buildCreate),
+        });
+        importedRows += toCreate.length;
+      } catch (bulkError) {
+        console.warn(
+          `[Import] createMany failed near row ${toCreate[0]?.rowNumber}, retrying row by row:`,
+          bulkError
+        );
+
+        for (const v of toCreate) {
+          try {
+            await prisma.voter.create({ data: buildCreate(v) });
+            importedRows++;
+          } catch (singleError) {
+            recordFailure(v, singleError);
+          }
+        }
+      }
+    }
+
+    // ---- EXISTING VOTERS: smart update, small parallel groups ----
+    // mobile / verification / voteStatus are NOT touched.
+
+    for (let j = 0; j < toUpdate.length; j += UPDATE_CONCURRENCY) {
+      const group = toUpdate.slice(j, j + UPDATE_CONCURRENCY);
+
+      const results = await Promise.allSettled(
+        group.map((v) =>
+          prisma.voter.update({
+            where: { id: existingMap.get(v.epic)! },
+            data: {
+              ...v.data,
+              boothId: booths.get(v.boothNumber)!.id!,
+            },
+          })
+        )
+      );
+
+      results.forEach((result, k) => {
+        if (result.status === "fulfilled") {
+          importedRows++;
+        } else {
+          recordFailure(group[k]!, result.reason);
+        }
+      });
+    }
+
+    const done = Math.min(i + CHUNK_SIZE, savable.length);
+    if (done % 10000 < CHUNK_SIZE || done >= savable.length) {
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(
+        `[Import] Progress: ${done.toLocaleString()} / ${savable.length.toLocaleString()} (${elapsed}s)`
+      );
+    }
+  }
+
+  // ======================================
+  // SAVE IMPORT ERRORS (in bulk)
+  // ======================================
+  //
+  // Sanitize raw Excel data before
+  // inserting into PostgreSQL JSONB.
+  //
+
+  const ERROR_CHUNK = 500;
+
+  for (let i = 0; i < pendingErrors.length; i += ERROR_CHUNK) {
+    const slice = pendingErrors.slice(i, i + ERROR_CHUNK);
 
     try {
-      // ==================================
-      // EPIC
-      // ==================================
-
-      const epicValue =
-        cleanString(
-          row.epicNo
-        );
-
-      const epic =
-        epicValue?.toUpperCase();
-
-      // ==================================
-      // NAME
-      // ==================================
-
-      const name =
-        cleanString(
-          row.epicName
-        );
-
-      // ==================================
-      // BOOTH / PART NUMBER
-      // ==================================
-      //
-      // partNo is the Booth Number.
-      // pollingStation is the Booth Name.
-      //
-
-      const boothNumber =
-        cleanString(
-          row.partNo
-        );
-
-      const pollingStationName =
-        cleanString(
-          row.pollingStation
-        );
-
-      // ==================================
-      // REQUIRED VALIDATION
-      // ==================================
-
-      if (!epic) {
-        throw new Error(
-          "EPIC number is missing"
-        );
-      }
-
-      if (!name) {
-        throw new Error(
-          "Voter name is missing"
-        );
-      }
-
-      if (!boothNumber) {
-        throw new Error(
-          "Part/Booth number (partNo) is missing"
-        );
-      }
-
-      // ==================================
-      // DUPLICATE EPIC IN CURRENT FILE
-      // ==================================
-
-      if (seenEpics.has(epic)) {
-        duplicateRows++;
-        continue;
-      }
-
-      seenEpics.add(epic);
-
-      // ==================================
-      // FIND OR CREATE BOOTH
-      // ==================================
-      //
-      // Unique key: assemblyId + boothNumber
-      //
-      // Uses in-memory cache first to avoid
-      // repeated DB round-trips and prevent
-      // duplicate booth creation for voters
-      // in the same part/booth.
-      //
-
-      let cachedBooth = boothCache.get(boothNumber);
-
-      if (!cachedBooth) {
-        let booth = await prisma.booth.findUnique({
-          where: {
-            assemblyId_boothNumber: {
-              assemblyId,
-              boothNumber,
-            },
-          },
-        });
-
-        if (!booth) {
-          booth = await prisma.booth.create({
-            data: {
-              assemblyId,
-              boothNumber,
-              name: pollingStationName || `Booth ${boothNumber}`,
-            },
-          });
-
-          newBoothsCreated++;
-
-          // Audit log for automatic booth creation
-          await prisma.auditLog.create({
-            data: {
-              action: "BOOTH_AUTO_CREATED",
-              entity: "BOOTH",
-              entityId: booth.id,
-              userId: uploadedById,
-              details: {
-                boothNumber,
-                boothName: booth.name,
-                assemblyId,
-                importFileName: fileName,
-              },
-            },
-          });
-        } else if (
-          pollingStationName &&
-          booth.name !== pollingStationName
-        ) {
-          booth = await prisma.booth.update({
-            where: { id: booth.id },
-            data: { name: pollingStationName },
-          });
-        }
-
-        cachedBooth = { id: booth.id, name: booth.name };
-        boothCache.set(boothNumber, cachedBooth);
-      } else if (
-        pollingStationName &&
-        cachedBooth.name !== pollingStationName
-      ) {
-        const updatedBooth = await prisma.booth.update({
-          where: { id: cachedBooth.id },
-          data: { name: pollingStationName },
-        });
-        cachedBooth = { id: updatedBooth.id, name: updatedBooth.name };
-        boothCache.set(boothNumber, cachedBooth);
-      }
-
-      const boothId = cachedBooth.id;
-      const resolvedPollingStationName =
-        pollingStationName || cachedBooth.name || `Booth ${boothNumber}`;
-
-      validRows++;
-
-      // ==================================
-      // OFFICIAL VOTER DATA
-      // ==================================
-      //
-      // These fields CAN be updated from
-      // Excel during re-import.
-      //
-      // Field-team data is intentionally
-      // excluded from update:
-      //
-      //   mobile
-      //   classification
-      //   verification
-      //   voteStatus
-      //
-
-      const officialData = {
-        name,
-
-        nameHindi:
-          cleanString(
-            row.epicName1
-          ),
-
-        fatherName:
-          cleanString(
-            row.fathersOrGuardian
-          ),
-
-        fatherNameHindi:
-          cleanString(
-            row.fathersOrGuardianHindi
-          ),
-
-        motherName:
-          cleanString(
-            row.mothersName
-          ),
-
-        husbandName:
-          cleanString(
-            row.spouseName
-          ),
-
-        houseNumber:
-          cleanString(
-            row.houseNo
-          ),
-
-        gender:
-          cleanString(
-            row.Gender
-          ),
-
-        age:
-          cleanNumber(
-            row.Age
-          ),
-
-        dateOfBirth:
-          cleanString(
-            row.enrollDob
-          ),
-
-        assemblyNumber:
-          cleanString(
-            row.acNo
-          ),
-
-        partNumber:
-          cleanString(
-            row.partNo
-          ),
-
-        partSerial:
-          cleanString(
-            row.partSerial
-          ),
-
-        pollingStationName:
-          resolvedPollingStationName,
-
-        // Always from server — NEVER from client/Excel
-        assemblyId,
-        boothId,
-      };
-
-      // ==================================
-      // FIND EXISTING VOTER
-      // ==================================
-
-      const existing =
-        await prisma.voter.findUnique({
-          where: {
-            assemblyId_epic: {
-              assemblyId,
-              epic,
-            },
-          },
-        });
-
-      // ==================================
-      // EXISTING VOTER → SMART UPDATE
-      // ==================================
-
-      if (existing) {
-        await prisma.voter.update({
-          where: {
-            id: existing.id,
-          },
-
-          data: officialData,
-        });
-      }
-
-      // ==================================
-      // NEW VOTER → CREATE
-      // ==================================
-
-      else {
-        await prisma.voter.create({
-          data: {
-            epic,
-
-            ...officialData,
-
-            // Excel mobile is used ONLY
-            // when creating a new voter.
-            // Never overwritten on update.
-            mobile:
-              cleanMobile(
-                row.mobileNo
-              ),
-
-            verification:
-              "UNVERIFIED",
-
-            voteStatus:
-              "PENDING",
-          },
-        });
-      }
-
-      importedRows++;
-    } catch (error) {
-      errorRows++;
-
-      // ==================================
-      // SAVE IMPORT ERROR
-      // ==================================
-      //
-      // Sanitize raw Excel data before
-      // inserting into PostgreSQL JSONB.
-      //
-
-      await prisma.importError.create({
-        data: {
-          batchId:
-            batch.id,
-
-          rowNumber,
-
-          rawData:
-            toPrismaJson(row),
-
-          errorMessage:
-            error instanceof Error
-              ? error.message
-              : "Unknown import error",
-        },
+      await prisma.importError.createMany({
+        data: slice.map((e) => ({
+          batchId: batch.id,
+          rowNumber: e.rowNumber,
+          rawData: toPrismaJson(e.rawRow),
+          errorMessage: e.message,
+        })),
       });
+    } catch {
+      for (const e of slice) {
+        try {
+          await prisma.importError.create({
+            data: {
+              batchId: batch.id,
+              rowNumber: e.rowNumber,
+              rawData: toPrismaJson(e.rawRow),
+              errorMessage: e.message,
+            },
+          });
+        } catch (err) {
+          console.warn(`[Import] Could not save error for row ${e.rowNumber}:`, err);
+        }
+      }
     }
   }
 
@@ -1090,29 +1078,18 @@ export async function importVoterFile(
   // MARK IMPORT COMPLETED
   // ======================================
 
-  const completedBatch =
-    await prisma.importBatch.update({
-      where: {
-        id: batch.id,
-      },
-
-      data: {
-        status: "COMMITTED",
-
-        totalRows,
-
-        validRows,
-
-        duplicateRows,
-
-        errorRows,
-
-        importedRows,
-
-        completedAt:
-          new Date(),
-      },
-    });
+  const completedBatch = await prisma.importBatch.update({
+    where: { id: batch.id },
+    data: {
+      status: "COMMITTED",
+      totalRows,
+      validRows,
+      duplicateRows,
+      errorRows,
+      importedRows,
+      completedAt: new Date(),
+    },
+  });
 
   // ======================================
   // AUDIT LOG
@@ -1120,35 +1097,20 @@ export async function importVoterFile(
 
   await prisma.auditLog.create({
     data: {
-      action:
-        "VOTER_IMPORT_COMPLETED",
-
-      entity:
-        "IMPORT_BATCH",
-
-      entityId:
-        batch.id,
-
-      userId:
-        uploadedById,
-
+      action: "VOTER_IMPORT_COMPLETED",
+      entity: "IMPORT_BATCH",
+      entityId: batch.id,
+      userId: uploadedById,
       details: {
         fileName,
-
         assemblyId,
         assemblyNumber: assembly.number,
         assemblyName: assembly.name,
-
         totalRows,
-
         validRows,
-
         duplicateRows,
-
         errorRows,
-
         importedRows,
-
         newBoothsCreated,
       },
     },
