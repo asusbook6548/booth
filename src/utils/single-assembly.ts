@@ -1,34 +1,55 @@
 import { prisma } from "../config/prisma.js";
 
-export async function getSingleActiveAssembly() {
-    const assemblies =
-        await prisma.assembly.findMany({
-            where: {
-                isActive: true,
-            },
-            select: {
-                id: true,
-                number: true,
-                name: true,
-                district: true,
-                electionYear: true,
-            },
-            orderBy: {
-                createdAt: "asc",
-            },
-        });
+// ========================================
+// GET CURRENT ASSEMBLY
+// ========================================
+//
+// Business Rule: ONE deployment = ONE Assembly.
+//
+// 0 assemblies → 404 / configuration error
+// 1 assembly   → return it
+// 2+ assemblies → data integrity error / 500
+//
 
-    if (assemblies.length === 0) {
-        throw new Error(
-            "No active assembly is configured"
-        );
-    }
+export async function getCurrentAssembly() {
+  const assemblies = await prisma.assembly.findMany({
+    where: {
+      isActive: true,
+    },
+    select: {
+      id: true,
+      number: true,
+      name: true,
+      district: true,
+      electionYear: true,
+      isActive: true,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+  });
 
-    if (assemblies.length > 1) {
-        throw new Error(
-            "Multiple active assemblies found. V3.1.1 supports only one active assembly"
-        );
-    }
+  if (assemblies.length === 0) {
+    const err: Error & { status?: number } = new Error(
+      "No assembly is configured. Please set up the assembly first"
+    );
+    err.status = 404;
+    throw err;
+  }
 
-    return assemblies[0];
+  if (assemblies.length > 1) {
+    const err: Error & { status?: number } = new Error(
+      "Data integrity error: multiple assemblies found. V3.1.1 supports only one assembly"
+    );
+    err.status = 500;
+    throw err;
+  }
+
+  return assemblies[0]!;
 }
+
+// ========================================
+// BACKWARD-COMPAT ALIAS
+// ========================================
+
+export { getCurrentAssembly as getSingleActiveAssembly };

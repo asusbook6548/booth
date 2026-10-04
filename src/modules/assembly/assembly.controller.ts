@@ -2,14 +2,17 @@ import { Request, Response } from "express";
 import { AuthRequest } from "../../middleware/auth.middleware";
 import {
   createAssembly,
-  getAssemblies,
-  getAssemblyById,
-  updateAssembly,
+  getCurrentAssembly,
 } from "./assembly.service";
-import {
-  createAssemblySchema,
-  updateAssemblySchema,
-} from "./assembly.validation";
+import { createAssemblySchema } from "./assembly.validation";
+
+// ========================================
+// POST /api/assemblies
+// ========================================
+//
+// One-time assembly setup.
+// Returns 409 if an assembly already exists.
+//
 
 export async function create(req: AuthRequest, res: Response) {
   try {
@@ -25,7 +28,10 @@ export async function create(req: AuthRequest, res: Response) {
   } catch (error) {
     console.error(error);
 
-    return res.status(400).json({
+    const status =
+      (error as { status?: number })?.status === 409 ? 409 : 400;
+
+    return res.status(status).json({
       success: false,
       message:
         error instanceof Error
@@ -35,69 +41,34 @@ export async function create(req: AuthRequest, res: Response) {
   }
 }
 
-export async function getAll(_req: Request, res: Response) {
+// ========================================
+// GET /api/assemblies
+// ========================================
+//
+// Returns the single configured assembly.
+// Returns 404 if no assembly exists.
+//
+
+export async function getOne(_req: Request, res: Response) {
   try {
-    const assemblies = await getAssemblies();
-
-    return res.status(200).json({
-      success: true,
-      data: { assemblies },
-    });
-  } catch (error) {
-    console.error(error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch assemblies",
-    });
-  }
-}
-
-export async function getOne(req: Request, res: Response) {
-  try {
-    const assembly = await getAssemblyById(
-      String(req.params.id)
-    );
+    const assembly = await getCurrentAssembly();
 
     return res.status(200).json({
       success: true,
       data: { assembly },
     });
   } catch (error) {
-    return res.status(404).json({
-      success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "Assembly not found",
-    });
-  }
-}
-
-export async function update(req: AuthRequest, res: Response) {
-  try {
-    const input = updateAssemblySchema.parse(req.body);
-
-    const assembly = await updateAssembly(
-      String(req.params.id),
-      input,
-      req.user?.id
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: "Assembly updated successfully",
-      data: { assembly },
-    });
-  } catch (error) {
     console.error(error);
 
-    return res.status(400).json({
+    const status =
+      (error as { status?: number })?.status === 404 ? 404 : 500;
+
+    return res.status(status).json({
       success: false,
       message:
         error instanceof Error
           ? error.message
-          : "Failed to update assembly",
+          : "Failed to fetch assembly",
     });
   }
 }

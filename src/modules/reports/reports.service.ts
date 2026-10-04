@@ -551,7 +551,7 @@ export function mapVotersForExport(
       voter.pollingStationName ?? "",
 
     Village:
-      voter.village ?? "",
+      voter.booth?.village ?? "",
 
     Booth:
       voter.booth?.boothNumber ?? "",

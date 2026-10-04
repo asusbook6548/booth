@@ -86,11 +86,6 @@ export const parsedVoterRowSchema = z.object({
     .max(100)
     .nullable(),
 
-  village: z
-    .string()
-    .max(150)
-    .nullable(),
-
   gender: z
     .string()
     .max(20)

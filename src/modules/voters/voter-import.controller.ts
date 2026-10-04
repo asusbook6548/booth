@@ -12,11 +12,14 @@ import { formatErrorMessage } from "../../utils/error-formatter.js";
  *
  * multipart/form-data
  *
- * file:
- * voter Excel / CSV file
+ * Required:
+ *   file: voter Excel (.xlsx / .xls) or CSV file
  *
- * assemblyId:
- * Assembly UUID
+ * The assembly is determined automatically from the server
+ * configuration (getCurrentAssembly).
+ *
+ * The user must NOT pass assemblyId.
+ * The backend always uses the configured assembly.
  */
 export async function importVoterFile(
   req: AuthRequest,
@@ -48,24 +51,7 @@ export async function importVoterFile(
     }
 
     /**
-     * Check assemblyId
-     */
-    const assemblyId =
-      String(
-        req.body.assemblyId || ""
-      ).trim();
-
-    if (!assemblyId) {
-      return res.status(400).json({
-        success: false,
-
-        message:
-          "assemblyId is required",
-      });
-    }
-
-    /**
-     * Import
+     * Import — assembly is determined server-side
      */
     const result =
       await importVoterFileService(
@@ -76,8 +62,6 @@ export async function importVoterFile(
         req.file.mimetype,
 
         req.user.id,
-
-        assemblyId
       );
 
     return res.status(200).json({
@@ -94,9 +78,12 @@ export async function importVoterFile(
       error
     );
 
+    const status =
+      (error as { status?: number })?.status === 404 ? 404 : 400;
+
     const message = formatErrorMessage(error, "Voter import failed");
 
-    return res.status(400).json({
+    return res.status(status).json({
       success: false,
       message,
     });

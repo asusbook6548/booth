@@ -2,37 +2,76 @@ import * as XLSX from "xlsx";
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "../../config/prisma";
-import { getSingleActiveAssembly } from "../../utils/single-assembly.js";
+import { getCurrentAssembly } from "../../utils/single-assembly.js";
 
 // ========================================
 // EXCEL ROW STRUCTURE
 // ========================================
+//
+// Source Excel columns → Voter model mapping:
+//
+//   epicNo             → epic
+//   epicName           → name
+//   epicName1          → nameHindi
+//   Gender             → gender
+//   mobileNo           → mobile  (new voters only)
+//   enrollDob          → dateOfBirth
+//   Age                → age
+//   fathersOrGuardian  → fatherName
+//   fathersOrGuardianHindi → fatherNameHindi
+//   mothersName        → motherName
+//   spouseName         → husbandName
+//   houseNo            → houseNumber
+//   acNo               → assemblyNumber
+//   partNo             → partNumber  AND  Booth.boothNumber
+//   partSerial         → partSerial
+//   pollingStation     → pollingStationName AND Booth.name (if new)
+//
+// BOOTH NUMBER: partNo  (NOT pollingStation)
+// pollingStation is used as Booth.name when creating a missing booth.
+//
 
 export interface RawExcelVoter {
   epicNo?: unknown;
+  epic?: unknown;
+  EPIC?: unknown;
   epicName?: unknown;
+  name?: unknown;
   epicName1?: unknown;
-
+  epicNameL1?: unknown;
+  epicNameHindi?: unknown;
   Gender?: unknown;
-
+  gender?: unknown;
   mobileNo?: unknown;
+  mobile?: unknown;
   enrollDob?: unknown;
+  erollDob?: unknown;
+  dob?: unknown;
   Age?: unknown;
-
+  age?: unknown;
   fathersOrGuardian?: unknown;
+  fatherName?: unknown;
   fathersOrGuardianHindi?: unknown;
-
+  fathersOrGuardianL1?: unknown;
+  fatherNameHindi?: unknown;
   mothersName?: unknown;
+  motherName?: unknown;
   spouseName?: unknown;
-
+  spouseNa?: unknown;
+  husbandName?: unknown;
   houseNo?: unknown;
-
+  houseNumber?: unknown;
   acNo?: unknown;
+  assemblyNumber?: unknown;
   partNo?: unknown;
+  partNumber?: unknown;
   partSerial?: unknown;
-
+  serialNo?: unknown;
   pollingStation?: unknown;
+  pollingStationName?: unknown;
+  [key: string]: unknown;
 }
+
 
 // ========================================
 // CLEAN STRING
@@ -204,6 +243,43 @@ function toPrismaJson(
 }
 
 // ========================================
+// ROW VALUE EXTRACTOR (Flexible Aliases)
+// ========================================
+
+function getRowValue(row: Record<string, unknown>, aliases: string[]): unknown {
+  // 1. Direct lookup
+  for (const alias of aliases) {
+    if (row[alias] !== undefined && row[alias] !== null && row[alias] !== "") {
+      return row[alias];
+    }
+  }
+
+  // 2. Canonical lookup (ignores case, spaces, underscores, hyphens)
+  const normalizedAliases = new Set(
+    aliases.map((a) => a.toLowerCase().replace(/[^a-z0-9]/g, ""))
+  );
+
+  for (const [key, val] of Object.entries(row)) {
+    if (val === undefined || val === null || val === "") continue;
+    const cleanKey = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (normalizedAliases.has(cleanKey)) {
+      return val;
+    }
+  }
+
+  return null;
+}
+
+function cleanPartSerial(value: unknown): string | null {
+  if (value === undefined || value === null || value === "") return null;
+  let str = String(value).trim();
+  if (str.endsWith(".0")) {
+    str = str.slice(0, -2);
+  }
+  return str.length > 0 ? str : null;
+}
+
+// ========================================
 // READ EXCEL / XLS / CSV
 // ========================================
 
@@ -238,7 +314,7 @@ export function parseVoterExcel(
   }
 
   const rows =
-    XLSX.utils.sheet_to_json<RawExcelVoter>(
+    XLSX.utils.sheet_to_json<Record<string, unknown>>(
       worksheet,
       {
         defval: null,
@@ -250,82 +326,119 @@ export function parseVoterExcel(
     (row) => ({
       epicNo:
         cleanString(
-          row.epicNo
+          getRowValue(row, ["epicNo", "epicNumber", "epic", "EPIC", "voterId", "epic_no"])
         ),
 
       epicName:
         cleanString(
-          row.epicName
+          getRowValue(row, ["epicName", "name", "Name", "voterName", "voter_name", "epic_name"])
         ),
 
       epicName1:
         cleanString(
-          row.epicName1
+          getRowValue(row, ["epicNameL1", "epicName1", "nameHindi", "epicNameHindi", "nameL1", "epic_name_l1"])
         ),
 
       Gender:
         cleanString(
-          row.Gender
+          getRowValue(row, ["Gender", "gender", "sex"])
         ),
 
       mobileNo:
         cleanMobile(
-          row.mobileNo
+          getRowValue(row, ["mobileNo", "mobile", "Mobile", "phone", "contactNo", "mobile_no"])
         ),
 
       enrollDob:
         cleanString(
-          row.enrollDob
+          getRowValue(row, ["enrollDob", "erollDob", "dob", "DOB", "dateOfBirth", "enroll_dob", "eroll_dob"])
         ),
 
       Age:
         cleanNumber(
-          row.Age
+          getRowValue(row, ["Age", "age"])
         ),
 
       fathersOrGuardian:
         cleanString(
-          row.fathersOrGuardian
+          getRowValue(row, [
+            "fathersOrGuardianName",
+            "fathersOrGuardian",
+            "fatherName",
+            "father_name",
+            "fathersName",
+            "guardianName",
+            "father",
+            "guardian",
+          ])
         ),
 
       fathersOrGuardianHindi:
         cleanString(
-          row.fathersOrGuardianHindi
+          getRowValue(row, [
+            "fathersOrGuardianNameL1",
+            "fathersOrGuardianL1",
+            "fathersOrGuardianHindi",
+            "fatherNameHindi",
+            "fatherNameL1",
+            "father_name_hindi",
+          ])
         ),
 
       mothersName:
         cleanString(
-          row.mothersName
+          getRowValue(row, ["mothersName", "motherName", "mother", "mother_name", "mothers_name"])
         ),
 
       spouseName:
         cleanString(
-          row.spouseName
+          getRowValue(row, ["spouseName", "spouseNa", "husbandName", "husband", "spouse", "spouse_name"])
         ),
 
       houseNo:
         cleanString(
-          row.houseNo
+          getRowValue(row, ["houseNo", "houseNumber", "house", "house_no"])
         ),
 
       acNo:
         cleanString(
-          row.acNo
+          getRowValue(row, ["acNo", "acNumber", "assemblyNumber", "assemblyNo", "ac_no"])
         ),
 
       partNo:
         cleanString(
-          row.partNo
+          getRowValue(row, ["partNo", "partNumber", "boothNumber", "part", "part_no", "boothNo"])
         ),
 
       partSerial:
-        cleanString(
-          row.partSerial
+        cleanPartSerial(
+          getRowValue(row, [
+            "partSerial",
+            "partSerialNo",
+            "serialNo",
+            "part_serial",
+            "serial",
+            "partSerialNum",
+            "part_serial_no",
+            "slNo",
+            "slno",
+            "serialNumber",
+            "serial_number",
+            "srNo",
+            "sr_no",
+          ])
         ),
 
       pollingStation:
         cleanString(
-          row.pollingStation
+          getRowValue(row, [
+            "Polling Station No - Name",
+            "Polling Station No-Name",
+            "pollingStation",
+            "pollingStationName",
+            "boothName",
+            "polling_station",
+          ])
         ),
     })
   );
@@ -334,27 +447,38 @@ export function parseVoterExcel(
 // ========================================
 // IMPORT VOTER FILE
 // ========================================
+//
+// The assembly is determined AUTOMATICALLY
+// from the server configuration.
+//
+// Caller must NOT pass assemblyId.
+//
+// Flow:
+//   1. getCurrentAssembly()
+//   2. Parse file (xlsx / xls / csv)
+//   3. For each row:
+//      a. Validate required fields
+//      b. Upsert Booth (auto-create if missing)
+//      c. Smart merge Voter (create/update)
+//   4. Save ImportBatch result
+//   5. AuditLog
+//
 
 export async function importVoterFile(
   fileBuffer: Buffer,
   fileName: string,
   fileType: string,
-  uploadedById: string,
-  assemblyId: string
+  uploadedById: string
 ) {
   // ======================================
-  // CHECK ASSEMBLY
+  // GET CURRENT ASSEMBLY (server-side)
   // ======================================
+  //
+  // Never trust client-provided assemblyId.
+  //
 
-  const activeAssembly = await getSingleActiveAssembly();
-
-  if (assemblyId && assemblyId !== activeAssembly.id) {
-    throw new Error(
-      "Specified assembly is not the active assembly. V3.1.1 supports only one active assembly"
-    );
-  }
-
-  const effectiveAssemblyId = activeAssembly.id;
+  const assembly = await getCurrentAssembly();
+  const assemblyId = assembly.id;
 
   // ======================================
   // CREATE IMPORT BATCH
@@ -410,13 +534,29 @@ export async function importVoterFile(
   let duplicateRows = 0;
   let errorRows = 0;
   let importedRows = 0;
+  let newBoothsCreated = 0;
 
   // ======================================
-  // TRACK EPICS
+  // TRACK EPICS (duplicate detection)
   // ======================================
 
   const seenEpics =
     new Set<string>();
+
+  // ======================================
+  // BOOTH CACHE
+  // ======================================
+  //
+  // Cache boothNumber → boothId so that
+  // multiple voters in the same booth do
+  // NOT trigger repeated DB upserts.
+  //
+  // Also prevents race conditions:
+  // 100 voters from Booth 25 → 1 Booth record.
+  //
+
+  const boothCache =
+    new Map<string, string>();
 
   // ======================================
   // PROCESS ROWS
@@ -428,7 +568,7 @@ export async function importVoterFile(
     index++
   ) {
     const row =
-      rows[index];
+      rows[index]!;
 
     const rowNumber =
       index + 2;
@@ -458,10 +598,19 @@ export async function importVoterFile(
       // ==================================
       // BOOTH / PART NUMBER
       // ==================================
+      //
+      // partNo is the Booth Number.
+      // pollingStation is the Booth Name.
+      //
 
       const boothNumber =
         cleanString(
           row.partNo
+        );
+
+      const pollingStationName =
+        cleanString(
+          row.pollingStation
         );
 
       // ==================================
@@ -482,7 +631,7 @@ export async function importVoterFile(
 
       if (!boothNumber) {
         throw new Error(
-          "Part/Booth number is missing"
+          "Part/Booth number (partNo) is missing"
         );
       }
 
@@ -503,40 +652,79 @@ export async function importVoterFile(
       seenEpics.add(epic);
 
       // ==================================
-      // FIND BOOTH
+      // FIND OR CREATE BOOTH
       // ==================================
+      //
+      // Unique key: assemblyId + boothNumber
+      //
+      // Uses in-memory cache first to avoid
+      // repeated DB round-trips and prevent
+      // duplicate booth creation for voters
+      // in the same part/booth.
+      //
 
-      const booth =
-        await prisma.booth.findUnique({
+      let boothId = boothCache.get(boothNumber);
+
+      if (!boothId) {
+        const booth = await prisma.booth.upsert({
           where: {
             assemblyId_boothNumber: {
-              assemblyId: effectiveAssemblyId,
+              assemblyId,
               boothNumber,
             },
           },
+          update: {},
+          create: {
+            assemblyId,
+            boothNumber,
+            name: pollingStationName || `Booth ${boothNumber}`,
+          },
         });
 
-      if (!booth) {
-        throw new Error(
-          `Booth ${boothNumber} not found in selected assembly`
-        );
+        // Track whether this was a new booth
+        const wasExisting = await prisma.booth.findFirst({
+          where: {
+            assemblyId,
+            boothNumber,
+          },
+          select: { createdAt: true, updatedAt: true },
+        });
+
+        // We can't tell upsert created vs found easily,
+        // so we track using the cache: first time we see
+        // a boothNumber = potentially new.
+        boothId = booth.id;
+        boothCache.set(boothNumber, boothId);
+
+        // Check if booth was just created:
+        // upsert.create path means updatedAt ≈ createdAt
+        const isNew =
+          Math.abs(
+            booth.createdAt.getTime() - booth.updatedAt.getTime()
+          ) < 2000;
+
+        if (isNew) {
+          newBoothsCreated++;
+
+          // Audit log for automatic booth creation
+          await prisma.auditLog.create({
+            data: {
+              action: "BOOTH_AUTO_CREATED",
+              entity: "BOOTH",
+              entityId: booth.id,
+              userId: uploadedById,
+              details: {
+                boothNumber,
+                boothName: booth.name,
+                assemblyId,
+                importFileName: fileName,
+              },
+            },
+          });
+        }
       }
 
       validRows++;
-
-      // ==================================
-      // FIND EXISTING VOTER
-      // ==================================
-
-      const existing =
-        await prisma.voter.findUnique({
-          where: {
-            assemblyId_epic: {
-              assemblyId: effectiveAssemblyId,
-              epic,
-            },
-          },
-        });
 
       // ==================================
       // OFFICIAL VOTER DATA
@@ -546,13 +734,13 @@ export async function importVoterFile(
       // Excel during re-import.
       //
       // Field-team data is intentionally
-      // excluded:
+      // excluded from update:
       //
-      // mobile
-      // classification
-      // verification
-      // voteStatus
-      // ==================================
+      //   mobile
+      //   classification
+      //   verification
+      //   voteStatus
+      //
 
       const officialData = {
         name,
@@ -617,19 +805,29 @@ export async function importVoterFile(
             row.partSerial
           ),
 
-        pollingStationName:
-          cleanString(
-            row.pollingStation
-          ),
+        pollingStationName,
 
-        assemblyId: effectiveAssemblyId,
-
-        boothId:
-          booth.id,
+        // Always from server — NEVER from client/Excel
+        assemblyId,
+        boothId,
       };
 
       // ==================================
-      // EXISTING VOTER
+      // FIND EXISTING VOTER
+      // ==================================
+
+      const existing =
+        await prisma.voter.findUnique({
+          where: {
+            assemblyId_epic: {
+              assemblyId,
+              epic,
+            },
+          },
+        });
+
+      // ==================================
+      // EXISTING VOTER → SMART UPDATE
       // ==================================
 
       if (existing) {
@@ -643,7 +841,7 @@ export async function importVoterFile(
       }
 
       // ==================================
-      // NEW VOTER
+      // NEW VOTER → CREATE
       // ==================================
 
       else {
@@ -655,6 +853,7 @@ export async function importVoterFile(
 
             // Excel mobile is used ONLY
             // when creating a new voter.
+            // Never overwritten on update.
             mobile:
               cleanMobile(
                 row.mobileNo
@@ -677,10 +876,9 @@ export async function importVoterFile(
       // SAVE IMPORT ERROR
       // ==================================
       //
-      // IMPORTANT:
       // Sanitize raw Excel data before
       // inserting into PostgreSQL JSONB.
-      // ==================================
+      //
 
       await prisma.importError.create({
         data: {
@@ -750,7 +948,9 @@ export async function importVoterFile(
       details: {
         fileName,
 
-        assemblyId: effectiveAssemblyId,
+        assemblyId,
+        assemblyNumber: assembly.number,
+        assemblyName: assembly.name,
 
         totalRows,
 
@@ -761,6 +961,8 @@ export async function importVoterFile(
         errorRows,
 
         importedRows,
+
+        newBoothsCreated,
       },
     },
   });
@@ -769,5 +971,8 @@ export async function importVoterFile(
   // RETURN RESULT
   // ======================================
 
-  return completedBatch;
+  return {
+    ...completedBatch,
+    newBoothsCreated,
+  };
 }

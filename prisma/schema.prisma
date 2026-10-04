@@ -188,7 +188,6 @@ model Voter {
   dateOfBirth String?
 
   houseNumber String?
-  village     String?
 
   // ========================================
   // ELECTORAL DATA
@@ -256,7 +255,6 @@ model Voter {
   @@index([mobile])
   @@index([houseNumber])
   @@index([boothId])
-  @@index([village])
   @@index([classification])
   @@index([verification])
   @@index([gender])

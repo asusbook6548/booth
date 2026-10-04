@@ -1,40 +1,38 @@
 import { prisma } from "../../config/prisma";
-import {
-  CreateAssemblyInput,
-  UpdateAssemblyInput,
-} from "./assembly.validation";
+import { CreateAssemblyInput } from "./assembly.validation";
+
+// ========================================
+// CREATE ASSEMBLY (one-time setup)
+// ========================================
+//
+// Business rule: ONE deployment = ONE Assembly.
+// - If any assembly already exists → throw 409
+// - Always sets isActive = true
+// - Creates AuditLog
+//
 
 export async function createAssembly(
   input: CreateAssemblyInput,
   adminUserId?: string
 ) {
-  const existing = await prisma.assembly.findFirst({
-    where: {
-      number: input.number,
-      electionYear: input.electionYear,
-    },
-  });
+  const existingCount = await prisma.assembly.count();
 
-  if (existing) {
-    throw new Error(
-      "Assembly with this number already exists for this election year"
+  if (existingCount > 0) {
+    const err: Error & { status?: number } = new Error(
+      "Assembly already configured. V3.1.1 supports only one assembly per deployment"
     );
-  }
-
-  // If input.isActive is true (or defaults to true), ensure no other active assembly exists
-  if (input.isActive) {
-    const activeCount = await prisma.assembly.count({
-      where: { isActive: true },
-    });
-    if (activeCount > 0) {
-      throw new Error(
-        "Another active assembly already exists. V3.1.1 supports only one active assembly. Deactivate the existing active assembly first"
-      );
-    }
+    err.status = 409;
+    throw err;
   }
 
   const createdAssembly = await prisma.assembly.create({
-    data: input,
+    data: {
+      number: input.number,
+      name: input.name,
+      district: input.district,
+      electionYear: input.electionYear,
+      isActive: true,
+    },
   });
 
   if (adminUserId) {
@@ -58,82 +56,36 @@ export async function createAssembly(
   return createdAssembly;
 }
 
-export async function getAssemblies() {
-  return prisma.assembly.findMany({
-    orderBy: {
-      createdAt: "desc",
-    },
-    include: {
-      _count: {
-        select: {
-          booths: true,
-          voters: true,
-        },
-      },
-    },
-  });
-}
+// ========================================
+// GET CURRENT ASSEMBLY
+// ========================================
+//
+// Returns the single configured assembly.
+// Returns 404 if no assembly exists.
+//
 
-export async function getAssemblyById(id: string) {
-  const assembly = await prisma.assembly.findUnique({
-    where: { id },
-    include: {
-      _count: {
-        select: {
-          booths: true,
-          voters: true,
-        },
-      },
+export async function getCurrentAssembly() {
+  const assembly = await prisma.assembly.findFirst({
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      number: true,
+      name: true,
+      district: true,
+      electionYear: true,
+      isActive: true,
+      createdAt: true,
+      updatedAt: true,
     },
   });
 
   if (!assembly) {
-    throw new Error("Assembly not found");
+    const err: Error & { status?: number } = new Error(
+      "No assembly configured. Please set up the assembly first"
+    );
+    err.status = 404;
+    throw err;
   }
 
   return assembly;
-}
-
-export async function updateAssembly(
-  id: string,
-  input: UpdateAssemblyInput,
-  adminUserId?: string
-) {
-  const existing = await prisma.assembly.findUnique({
-    where: { id },
-  });
-
-  if (!existing) {
-    throw new Error("Assembly not found");
-  }
-
-  if (input.isActive === true && !existing.isActive) {
-    const activeCount = await prisma.assembly.count({
-      where: { isActive: true, NOT: { id } },
-    });
-    if (activeCount > 0) {
-      throw new Error(
-        "Another active assembly already exists. V3.1.1 supports only one active assembly. Deactivate the other active assembly first"
-      );
-    }
-  }
-
-  const updatedAssembly = await prisma.assembly.update({
-    where: { id },
-    data: input,
-  });
-
-  if (adminUserId) {
-    await prisma.auditLog.create({
-      data: {
-        action: "ASSEMBLY_UPDATED",
-        entity: "ASSEMBLY",
-        entityId: id,
-        userId: adminUserId,
-        details: JSON.parse(JSON.stringify(input)),
-      },
-    });
-  }
-
-  return updatedAssembly;
 }

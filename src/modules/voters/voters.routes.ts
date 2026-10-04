@@ -28,6 +28,30 @@ router.use(authMiddleware);
  * /api/voters/import:
  *   post:
  *     summary: Import voters from Excel/CSV file
+ *     description: |
+ *       Imports voters from an Excel (.xlsx / .xls) or CSV file.
+ *
+ *       **Assembly**: Automatically determined from server configuration.
+ *       The caller must NOT pass assemblyId — the backend uses getCurrentAssembly().
+ *
+ *       **Booth**: Automatically created if a booth with the given partNo does not
+ *       exist for the current assembly. No duplicate booths are created.
+ *
+ *       **Smart Merge**: Existing voters (matched by assemblyId + epic) are updated
+ *       with official/imported data. Field-team data (mobile, classification,
+ *       verification, voteStatus) is NOT overwritten on update.
+ *
+ *       **Supported formats**: .xlsx, .xls, .csv
+ *
+ *       **Required columns**: epicNo, epicName, partNo
+ *
+ *       **Optional columns**: epicName1, Gender, mobileNo, enrollDob, Age,
+ *       fathersOrGuardian, fathersOrGuardianHindi, mothersName, spouseName,
+ *       houseNo, acNo, partSerial, pollingStation
+ *
+ *       **Booth number column**: partNo (NOT pollingStation)
+ *
+ *       **Booth name**: pollingStation (used when auto-creating a missing booth)
  *     tags: [Voters]
  *     security:
  *       - BearerAuth: []
@@ -39,16 +63,11 @@ router.use(authMiddleware);
  *             type: object
  *             required:
  *               - file
- *               - assemblyId
  *             properties:
  *               file:
  *                 type: string
  *                 format: binary
- *                 description: Excel (.xlsx) or CSV file containing voter data
- *               assemblyId:
- *                 type: string
- *                 format: uuid
- *                 description: Assembly UUID to associate with imported voters
+ *                 description: Excel (.xlsx / .xls) or CSV file containing voter data
  *     responses:
  *       200:
  *         description: Voter file imported successfully
@@ -65,14 +84,59 @@ router.use(authMiddleware);
  *                   example: Voter file imported successfully
  *                 data:
  *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       format: uuid
+ *                     fileName:
+ *                       type: string
+ *                       example: voters.xlsx
+ *                     fileType:
+ *                       type: string
+ *                       example: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+ *                     status:
+ *                       type: string
+ *                       enum: [UPLOADED, REVIEWING, COMMITTED, FAILED]
+ *                       example: COMMITTED
+ *                     totalRows:
+ *                       type: integer
+ *                       example: 1000
+ *                     validRows:
+ *                       type: integer
+ *                       example: 990
+ *                     duplicateRows:
+ *                       type: integer
+ *                       example: 5
+ *                     errorRows:
+ *                       type: integer
+ *                       example: 5
+ *                     importedRows:
+ *                       type: integer
+ *                       example: 990
+ *                     newBoothsCreated:
+ *                       type: integer
+ *                       example: 7
+ *                       description: Number of new booths automatically created during import
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                     completedAt:
+ *                       type: string
+ *                       format: date-time
  *       400:
- *         description: Import failed
+ *         description: Import failed or invalid file
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
  *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: No assembly configured
  *         content:
  *           application/json:
  *             schema:

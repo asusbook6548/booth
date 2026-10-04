@@ -5,19 +5,7 @@ export const createAssemblySchema = z.object({
   name: z.string().min(2).max(100).trim(),
   district: z.string().min(2).max(100).trim(),
   electionYear: z.number().int().min(2000).max(2100),
-  isActive: z.boolean().optional(),
-});
-
-export const updateAssemblySchema = z.object({
-  number: z.string().min(1).max(20).trim().optional(),
-  name: z.string().min(2).max(100).trim().optional(),
-  district: z.string().min(2).max(100).trim().optional(),
-  electionYear: z.number().int().min(2000).max(2100).optional(),
-  isActive: z.boolean().optional(),
 });
 
 export type CreateAssemblyInput =
   z.infer<typeof createAssemblySchema>;
-
-export type UpdateAssemblyInput =
-  z.infer<typeof updateAssemblySchema>;
