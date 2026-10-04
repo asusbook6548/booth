@@ -220,8 +220,6 @@ export async function getClassificationVoters(
 
         houseNumber: true,
 
-        village: true,
-
         gender: true,
 
         age: true,

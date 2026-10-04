@@ -246,6 +246,13 @@ function toPrismaJson(
 // ROW VALUE EXTRACTOR (Flexible Aliases)
 // ========================================
 
+function normalizeKey(str: string): string {
+  return str
+    .toLowerCase()
+    .trim()
+    .replace(/[\s_\-\.\:\(\)\/\'\"\\#\[\],?]/g, "");
+}
+
 function getRowValue(row: Record<string, unknown>, aliases: string[]): unknown {
   // 1. Direct lookup
   for (const alias of aliases) {
@@ -254,14 +261,12 @@ function getRowValue(row: Record<string, unknown>, aliases: string[]): unknown {
     }
   }
 
-  // 2. Canonical lookup (ignores case, spaces, underscores, hyphens)
-  const normalizedAliases = new Set(
-    aliases.map((a) => a.toLowerCase().replace(/[^a-z0-9]/g, ""))
-  );
+  // 2. Canonical lookup (ignores case, spaces, underscores, hyphens, punctuation while preserving Hindi/Unicode)
+  const normalizedAliases = new Set(aliases.map(normalizeKey));
 
   for (const [key, val] of Object.entries(row)) {
     if (val === undefined || val === null || val === "") continue;
-    const cleanKey = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const cleanKey = normalizeKey(key);
     if (normalizedAliases.has(cleanKey)) {
       return val;
     }
@@ -370,6 +375,14 @@ export function parseVoterExcel(
             "guardianName",
             "father",
             "guardian",
+            "rln_name",
+            "relative_name",
+            "relativeName",
+            "fatherHusbandName",
+            "father_husband_name",
+            "पिता का नाम",
+            "पिता/पति का नाम",
+            "संबंधी का नाम",
           ])
         ),
 
@@ -382,22 +395,29 @@ export function parseVoterExcel(
             "fatherNameHindi",
             "fatherNameL1",
             "father_name_hindi",
+            "rln_name_l1",
+            "rln_name_hindi",
+            "relativeNameHindi",
+            "relative_name_hindi",
+            "fatherHindi",
+            "पिता का नाम हिन्दी",
+            "पिता का नाम (हिन्दी)",
           ])
         ),
 
       mothersName:
         cleanString(
-          getRowValue(row, ["mothersName", "motherName", "mother", "mother_name", "mothers_name"])
+          getRowValue(row, ["mothersName", "motherName", "mother", "mother_name", "mothers_name", "माता का नाम"])
         ),
 
       spouseName:
         cleanString(
-          getRowValue(row, ["spouseName", "spouseNa", "husbandName", "husband", "spouse", "spouse_name"])
+          getRowValue(row, ["spouseName", "spouseNa", "husbandName", "husband", "spouse", "spouse_name", "पति का नाम"])
         ),
 
       houseNo:
         cleanString(
-          getRowValue(row, ["houseNo", "houseNumber", "house", "house_no"])
+          getRowValue(row, ["houseNo", "houseNumber", "house", "house_no", "मकान संख्या"])
         ),
 
       acNo:
@@ -407,7 +427,7 @@ export function parseVoterExcel(
 
       partNo:
         cleanString(
-          getRowValue(row, ["partNo", "partNumber", "boothNumber", "part", "part_no", "boothNo"])
+          getRowValue(row, ["partNo", "partNumber", "boothNumber", "part", "part_no", "boothNo", "भाग संख्या"])
         ),
 
       partSerial:
@@ -426,6 +446,13 @@ export function parseVoterExcel(
             "serial_number",
             "srNo",
             "sr_no",
+            "slNoInPart",
+            "sl_no_in_part",
+            "serial_no_in_part",
+            "sNo",
+            "s_no",
+            "क्रम संख्या",
+            "क्रमांक",
           ])
         ),
 
@@ -639,14 +666,9 @@ export async function importVoterFile(
       // DUPLICATE EPIC IN CURRENT FILE
       // ==================================
 
-      if (
-        seenEpics.has(epic)
-      ) {
+      if (seenEpics.has(epic)) {
         duplicateRows++;
-
-        throw new Error(
-          `Duplicate EPIC in uploaded file: ${epic}`
-        );
+        continue;
       }
 
       seenEpics.add(epic);
