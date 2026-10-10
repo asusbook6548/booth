@@ -59,12 +59,20 @@ async function getAnalyticsSettings() {
 // 1. OVERVIEW
 // ========================================
 
-export async function getAnalyticsOverview() {
+export async function getAnalyticsOverview(boothId?: string) {
   const assembly =
     await getSingleActiveAssembly();
 
   const settings =
     await getAnalyticsSettings();
+
+  const boothWhere = boothId
+    ? { id: boothId, assemblyId: assembly.id }
+    : { assemblyId: assembly.id };
+
+  const voterWhere = boothId
+    ? { assemblyId: assembly.id, boothId }
+    : { assemblyId: assembly.id };
 
   const [
     totalVoters,
@@ -79,69 +87,65 @@ export async function getAnalyticsOverview() {
     assignedBooths,
   ] = await Promise.all([
     prisma.voter.count({
-      where: {
-        assemblyId: assembly.id,
-      },
+      where: voterWhere,
     }),
 
     prisma.voter.count({
       where: {
-        assemblyId: assembly.id,
+        ...voterWhere,
         classification: "GREEN",
       },
     }),
 
     prisma.voter.count({
       where: {
-        assemblyId: assembly.id,
+        ...voterWhere,
         classification: "YELLOW",
       },
     }),
 
     prisma.voter.count({
       where: {
-        assemblyId: assembly.id,
+        ...voterWhere,
         classification: "RED",
       },
     }),
 
     prisma.voter.count({
       where: {
-        assemblyId: assembly.id,
+        ...voterWhere,
         classification: "BLACK",
       },
     }),
 
     prisma.voter.count({
       where: {
-        assemblyId: assembly.id,
+        ...voterWhere,
         classification: null,
       },
     }),
 
     prisma.voter.count({
       where: {
-        assemblyId: assembly.id,
+        ...voterWhere,
         verification: "VERIFIED",
       },
     }),
 
     prisma.voter.count({
       where: {
-        assemblyId: assembly.id,
+        ...voterWhere,
         verification: "UNVERIFIED",
       },
     }),
 
     prisma.booth.count({
-      where: {
-        assemblyId: assembly.id,
-      },
+      where: boothWhere,
     }),
 
     prisma.booth.count({
       where: {
-        assemblyId: assembly.id,
+        ...boothWhere,
         volunteerId: {
           not: null,
         },
@@ -150,12 +154,26 @@ export async function getAnalyticsOverview() {
   ]);
 
   const activeBooths = await prisma.booth.findMany({
-    where: { assemblyId: assembly.id },
+    where: boothWhere,
     select: {
       id: true,
+      boothNumber: true,
+      name: true,
+      village: true,
+      volunteer: {
+        select: {
+          id: true,
+          name: true,
+          mobile: true,
+          status: true,
+        },
+      },
       _count: {
         select: { voters: true },
       },
+    },
+    orderBy: {
+      boothNumber: "asc",
     },
   });
 
@@ -304,8 +322,27 @@ export async function getAnalyticsOverview() {
     yellowOpportunity = "LOW";
   }
 
+  const selectedBooth =
+    boothId && activeBooths.length > 0
+      ? {
+          id: activeBooths[0].id,
+          boothNumber: activeBooths[0].boothNumber,
+          name: activeBooths[0].name,
+          village: activeBooths[0].village,
+          volunteer: activeBooths[0].volunteer,
+        }
+      : null;
+
   return {
     assembly,
+    selectedBooth,
+    totalVoters,
+    totalBooths,
+    totalVolunteers: assignedBooths,
+    verifiedVoters: verified,
+    unverifiedVoters: unverified,
+    classifiedVoters: classified,
+    unclassifiedVoters: unclassified,
 
     voters: {
       total: totalVoters,

@@ -20,12 +20,17 @@ import {
 // ========================================
 
 export async function getOverview(
-  _req: Request,
+  req: Request,
   res: Response
 ) {
   try {
+    const boothId =
+      typeof req.query.boothId === "string" && req.query.boothId.trim() !== ""
+        ? req.query.boothId.trim()
+        : undefined;
+
     const result =
-      await getAnalyticsOverview();
+      await getAnalyticsOverview(boothId);
 
     return res.status(200).json({
       success: true,

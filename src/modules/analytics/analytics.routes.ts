@@ -29,6 +29,12 @@ const router =
  *     tags: [Analytics]
  *     security:
  *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: boothId
+ *         schema:
+ *           type: string
+ *         description: Optional Booth ID to filter dashboard overview booth-wise
  *     responses:
  *       200:
  *         description: Analytics overview fetched successfully
