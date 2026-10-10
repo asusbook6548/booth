@@ -4,7 +4,7 @@
     "builder": "RAILPACK"
   },
   "deploy": {
-    "startCommand": "sh -c 'for d in prisma/migrations/*/; do npx prisma migrate resolve --applied $(basename $d); done; npx prisma migrate deploy && node dist/server.js'",
+    "startCommand": "npx prisma migrate deploy && node dist/server.js",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 60,
     "restartPolicyType": "ON_FAILURE",
