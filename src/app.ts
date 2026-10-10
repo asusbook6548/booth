@@ -26,31 +26,56 @@ import { formatErrorMessage } from "./utils/error-formatter.js";
 
 const app = express();
 
+// Railway (and most PaaS) sit behind a reverse proxy
+app.set("trust proxy", 1);
+
+// ========================================
+// CORS (must be first, before helmet and all routes)
+// ========================================
+
+const defaultOrigins = [
+  "http://localhost:3000",
+  "https://boothadmin.vercel.app",
+];
+
+const envOrigins = (process.env.CORS_ORIGIN ?? "")
+  .split(",")
+  .map((o) => o.trim().replace(/\/$/, "")) // strip trailing slash
+  .filter(Boolean);
+
+const allowAll = envOrigins.includes("*");
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
+
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, Postman, server-to-server)
+    if (!origin) return callback(null, true);
+
+    if (allowAll || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    console.warn(`[CORS] Blocked origin: ${origin}`);
+    return callback(null, false);
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  credentials: true,
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+// Explicitly answer all preflight requests
+app.options("*", cors(corsOptions));
+
 // ========================================
 // SECURITY
 // ========================================
 
-app.use(helmet());
-
 app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, Postman)
-      if (!origin) return callback(null, true);
-
-      const allowed = process.env.CORS_ORIGIN;
-      if (!allowed || allowed === "*") {
-        return callback(null, true);
-      }
-
-      const allowedOrigins = allowed.split(",").map((o) => o.trim());
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      return callback(null, true); // Fallback to allow origin to avoid breaking deployments
-    },
-    credentials: true,
+  helmet({
+    // Allow the Vercel frontend to read responses from this API
+    crossOriginResourcePolicy: { policy: "cross-origin" },
   }),
 );
 
@@ -116,181 +141,65 @@ app.get("/", (_req, res) => {
  *       500:
  *         description: Database connection failed
  */
-app.get(
-  "/api/health",
-  async (_req, res) => {
-    try {
-      await prisma.$queryRaw`SELECT 1`;
+app.get("/api/health", async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
 
-      return res.status(200).json({
-        success: true,
-        message:
-          "Booth Command Backend is running",
-        database: "connected",
-      });
-    } catch (error) {
-      console.error(
-        "Health check error:",
-        error,
-      );
+    return res.status(200).json({
+      success: true,
+      message: "Booth Command Backend is running",
+      database: "connected",
+    });
+  } catch (error) {
+    console.error("Health check error:", error);
 
-      return res.status(500).json({
-        success: false,
-        message:
-          "Database connection failed",
-      });
-    }
-  },
-);
+    return res.status(500).json({
+      success: false,
+      message: "Database connection failed",
+    });
+  }
+});
 
 // ========================================
-// AUTH
+// ROUTES
 // ========================================
 
-app.use(
-  "/api/auth",
-  authRoutes,
-);
-
-// ========================================
-// USERS
-// ========================================
-
-app.use(
-  "/api/users",
-  usersRoutes,
-);
-
-// ========================================
-// ASSEMBLY
-// ========================================
-
-app.use(
-  "/api/assemblies",
-  assemblyRoutes,
-);
-
-// ========================================
-// BOOTHS
-// ========================================
-
-app.use(
-  "/api/booths",
-  boothsRoutes,
-);
-
-// ========================================
-// VOLUNTEERS
-// ========================================
-
-app.use(
-  "/api/volunteers",
-  volunteersRoutes,
-);
-
-// ========================================
-// VOLUNTEER AUTH
-// ========================================
-
-app.use(
-  "/api/volunteer-auth",
-  volunteerAuthRoutes,
-);
-
-// ========================================
-// VOTERS
-// ========================================
-
-app.use(
-  "/api/voters",
-  votersRoutes,
-);
-
-// ========================================
-// VOLUNTEER VOTERS
-// ========================================
-
-app.use(
-  "/api/volunteer-voters",
-  volunteerVoterRoutes,
-);
-
-// ========================================
-// CLASSIFICATION
-// ========================================
-
-app.use(
-  "/api/classification",
-  classificationRoutes,
-);
-
-// ========================================
-// ANALYTICS
-// ========================================
+app.use("/api/auth", authRoutes);
+app.use("/api/users", usersRoutes);
+app.use("/api/assemblies", assemblyRoutes);
+app.use("/api/booths", boothsRoutes);
+app.use("/api/volunteers", volunteersRoutes);
+app.use("/api/volunteer-auth", volunteerAuthRoutes);
+app.use("/api/voters", votersRoutes);
+app.use("/api/volunteer-voters", volunteerVoterRoutes);
+app.use("/api/classification", classificationRoutes);
 
 // IMPORTANT:
-// Booth-specific routes must come before
+// Booth-specific analytics routes must come before
 // the generic analytics routes.
+app.use("/api/analytics/booths", boothAnalysisRoutes);
+app.use("/api/analytics", analyticsRoutes);
 
-app.use(
-  "/api/analytics/booths",
-  boothAnalysisRoutes,
-);
-
-app.use(
-  "/api/analytics",
-  analyticsRoutes,
-);
-
-// ========================================
-// REPORTS
-// ========================================
-
-app.use(
-  "/api/reports",
-  reportsRoutes,
-);
-
-// ========================================
-// SYSTEM SETTINGS
-// ========================================
-
-app.use(
-  "/api/settings",
-  settingsRoutes,
-);
-
-// ========================================
-// AUDIT LOGS
-// ========================================
-
-app.use(
-  "/api/audit-logs",
-  auditLogsRoutes,
-);
+app.use("/api/reports", reportsRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/audit-logs", auditLogsRoutes);
 
 // ========================================
 // SWAGGER
 // ========================================
 
-app.use(
-  "/api-docs",
-  swaggerUi.serve,
-  swaggerUi.setup(swaggerSpec),
-);
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // ========================================
 // 404 HANDLER
 // ========================================
 
-app.use(
-  (_req, res) => {
-    return res.status(404).json({
-      success: false,
-      message: "Route not found",
-    });
-  },
-);
+app.use((_req, res) => {
+  return res.status(404).json({
+    success: false,
+    message: "Route not found",
+  });
+});
 
 // ========================================
 // GLOBAL ERROR HANDLER
