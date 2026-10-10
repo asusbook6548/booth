@@ -15,6 +15,11 @@ async function startServer() {
       console.log(`http://0.0.0.0:${PORT}`);
     });
 
+    // 20-minute server timeouts for heavy bulk import processing
+    server.timeout = 1200000;
+    server.keepAliveTimeout = 1210000;
+    server.headersTimeout = 1220000;
+
     const shutdown = async (signal: string) => {
       console.log(`${signal} received. Shutting down...`);
 

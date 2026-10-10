@@ -17,9 +17,9 @@ const storage = multer.memoryStorage();
 
 export const upload = multer({
   storage,
-  // 50 mb upload limit
+  // 100 MB upload limit for large bulk voter files
   limits: {
-    fileSize: 50 * 1024 * 1024,
+    fileSize: 100 * 1024 * 1024,
   },
 
   fileFilter: (_req, file, cb) => {

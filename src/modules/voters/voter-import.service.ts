@@ -918,7 +918,7 @@ export async function importVoterFile(
   // ======================================
 
   const CHUNK_SIZE = 1000;
-  const UPDATE_CONCURRENCY = 10;
+  const UPDATE_CONCURRENCY = 25;
   const startTime = Date.now();
 
   const recordFailure = (v: PreparedVoter, reason: unknown) => {
