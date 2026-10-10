@@ -110,7 +110,7 @@ const options: swaggerJSDoc.Options = {
 
     servers: [
       {
-        url: "https://booth-command-production-122a.up.railway.app",
+        url: "https://booth-production-122a.up.railway.app",
         description: "Production Server",
       },
       {
