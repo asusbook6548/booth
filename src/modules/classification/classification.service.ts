@@ -377,37 +377,6 @@ export async function updateClassification(
           );
         }
 
-        // Audit log
-        await tx.auditLog.create({
-          data: {
-            action:
-              "CLASSIFICATION_UPDATED",
-
-            entity: "VOTER",
-
-            entityId: voter.id,
-
-            voterId: voter.id,
-
-            userId: adminUserId,
-
-            details: {
-              oldClassification:
-                voter.classification,
-
-              newClassification:
-                input.classification ??
-                voter.classification,
-
-              verification:
-                input.verification,
-
-              voteStatus:
-                input.voteStatus,
-            } as Prisma.InputJsonValue,
-          },
-        });
-
         return updated;
       }
     );
@@ -502,34 +471,6 @@ export async function bulkUpdateClassification(
           }
         );
       }
-
-      await tx.auditLog.create({
-        data: {
-          action:
-            "CLASSIFICATION_BULK_UPDATED",
-
-          entity: "VOTER",
-
-          userId: adminUserId,
-
-          details: {
-            requested:
-              uniqueVoterIds.length,
-
-            changed:
-              changedVoters.length,
-
-            classification:
-              input.classification,
-
-            voterIds:
-              changedVoters.map(
-                (voter) =>
-                  voter.id
-              ),
-          } as Prisma.InputJsonValue,
-        },
-      });
     }
   );
 

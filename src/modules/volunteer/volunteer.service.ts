@@ -81,28 +81,6 @@ export async function createVolunteer(
       },
     });
 
-  /**
-   * Audit log
-   */
-  await prisma.auditLog.create({
-    data: {
-      action: "VOLUNTEER_CREATED",
-
-      entity: "VOLUNTEER",
-
-      entityId: volunteer.id,
-
-      userId: adminUserId,
-
-      volunteerId: volunteer.id,
-
-      details: {
-        name: volunteer.name,
-        mobile: volunteer.mobile,
-      },
-    },
-  });
-
   return stripPassword(volunteer);
 }
 
@@ -240,30 +218,6 @@ export async function updateVolunteer(
       },
     });
 
-  /**
-   * Audit log — password change noted but hash never logged
-   */
-  await prisma.auditLog.create({
-    data: {
-      action: "VOLUNTEER_UPDATED",
-
-      entity: "VOLUNTEER",
-
-      entityId: id,
-
-      userId: adminUserId,
-
-      volunteerId: id,
-
-      details: {
-        name: input.name,
-        mobile: input.mobile,
-        status: input.status,
-        passwordChanged: input.password !== undefined,
-      },
-    },
-  });
-
   return stripPassword(updatedVolunteer);
 }
 
@@ -388,30 +342,6 @@ export async function assignBooth(
       },
     });
 
-  /**
-   * Audit log
-   */
-  await prisma.auditLog.create({
-    data: {
-      action: "VOLUNTEER_BOOTH_ASSIGNED",
-
-      entity: "BOOTH",
-
-      entityId: boothId,
-
-      userId: adminUserId,
-
-      volunteerId,
-
-      details: {
-        boothId,
-        boothNumber: booth.boothNumber,
-        volunteerId,
-        volunteerName: volunteer.name,
-      },
-    },
-  });
-
   return updatedBooth;
 }
 
@@ -467,28 +397,6 @@ export async function unassignBooth(
         },
       },
     });
-
-  /**
-   * Audit log
-   */
-  await prisma.auditLog.create({
-    data: {
-      action: "VOLUNTEER_BOOTH_UNASSIGNED",
-
-      entity: "BOOTH",
-
-      entityId: boothId,
-
-      userId: adminUserId,
-
-      volunteerId,
-
-      details: {
-        boothId,
-        boothNumber: volunteer.booth.boothNumber,
-      },
-    },
-  });
 
   return updatedBooth;
 }

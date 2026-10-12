@@ -18,7 +18,6 @@ import analyticsRoutes from "./modules/analytics/analytics.routes.js";
 import boothAnalysisRoutes from "./modules/booth-analysis/booth-analysis.routes.js";
 import reportsRoutes from "./modules/reports/reports.routes.js";
 import settingsRoutes from "./modules/settings/settings.routes.js";
-import auditLogsRoutes from "./modules/audit-logs/audit-logs.routes.js";
 
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./config/swagger.js";
@@ -180,7 +179,6 @@ app.use("/api/analytics", analyticsRoutes);
 
 app.use("/api/reports", reportsRoutes);
 app.use("/api/settings", settingsRoutes);
-app.use("/api/audit-logs", auditLogsRoutes);
 
 // ========================================
 // SWAGGER

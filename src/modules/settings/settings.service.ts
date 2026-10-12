@@ -88,59 +88,5 @@ export async function updateSettings(
       },
     });
 
-  await prisma.auditLog.create({
-    data: {
-      action: "SYSTEM_SETTINGS_UPDATED",
-
-      entity: "SYSTEM_SETTINGS",
-
-      entityId: updated.id,
-
-      userId: changedByUserId,
-
-      details: {
-        oldValues: {
-          strongGreenPercent:
-            current.strongGreenPercent,
-
-          moderateGreenPercent:
-            current.moderateGreenPercent,
-
-          highOpportunityYellow:
-            current.highOpportunityYellow,
-
-          mediumOpportunityYellow:
-            current.mediumOpportunityYellow,
-
-          highVerification:
-            current.highVerification,
-
-          mediumVerification:
-            current.mediumVerification,
-        },
-
-        newValues: {
-          strongGreenPercent:
-            updated.strongGreenPercent,
-
-          moderateGreenPercent:
-            updated.moderateGreenPercent,
-
-          highOpportunityYellow:
-            updated.highOpportunityYellow,
-
-          mediumOpportunityYellow:
-            updated.mediumOpportunityYellow,
-
-          highVerification:
-            updated.highVerification,
-
-          mediumVerification:
-            updated.mediumVerification,
-        },
-      },
-    },
-  });
-
   return updated;
 }

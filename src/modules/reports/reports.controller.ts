@@ -14,7 +14,6 @@ import {
   mapVotersForExport,
   createExcelBuffer,
   createCsvBuffer,
-  createExportAudit,
 } from "./reports.service.js";
 
 import type { AuthRequest } from "../../middleware/auth.middleware.js";
@@ -196,16 +195,6 @@ export async function exportVoters(
         result.voters
       );
 
-    await createExportAudit(
-      req.user!.id,
-      "VOTER_EXPORT",
-      {
-        format,
-        rows: rows.length,
-        filters,
-      }
-    );
-
     const fileName =
       `voters-${new Date()
         .toISOString()
@@ -339,15 +328,6 @@ export async function exportBooths(
         })
       );
 
-    await createExportAudit(
-      req.user!.id,
-      "BOOTH_EXPORT",
-      {
-        format,
-        rows: rows.length,
-      }
-    );
-
     const fileName =
       `booths-${new Date()
         .toISOString()
@@ -441,15 +421,6 @@ export async function exportVolunteers(
             volunteer.createdAt,
         })
       );
-
-    await createExportAudit(
-      req.user!.id,
-      "VOLUNTEER_EXPORT",
-      {
-        format,
-        rows: rows.length,
-      }
-    );
 
     const fileName =
       `volunteers-${new Date()
@@ -554,15 +525,6 @@ export async function exportClassification(
           result.unclassified.percentage,
       },
     ];
-
-    await createExportAudit(
-      req.user!.id,
-      "CLASSIFICATION_EXPORT",
-      {
-        format,
-        rows: rows.length,
-      }
-    );
 
     const fileName =
       `classification-${new Date()

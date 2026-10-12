@@ -181,24 +181,6 @@ export async function updateMyBoothVoter(
     });
   }
 
-  await prisma.auditLog.create({
-    data: {
-      action: "VOLUNTEER_VOTER_UPDATED",
-      entity: "VOTER",
-      entityId: voterId,
-      volunteerId,
-      voterId,
-      details: {
-        previous: {
-          classification: anyVoter.classification,
-          verification: anyVoter.verification,
-          voteStatus: anyVoter.voteStatus,
-        },
-        updated: input,
-      },
-    },
-  });
-
   return updatedVoter;
 }
 

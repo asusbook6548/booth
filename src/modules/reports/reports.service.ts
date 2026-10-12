@@ -622,22 +622,3 @@ export function createCsvBuffer(
     bookType: "csv",
   });
 }
-
-/**
- * Audit export
- */
-export async function createExportAudit(
-  userId: string,
-  action: string,
-  details: Record<string, unknown>
-) {
-  await prisma.auditLog.create({
-    data: {
-      action,
-      entity: "REPORT",
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      details: details as any,
-      userId,
-    },
-  });
-}

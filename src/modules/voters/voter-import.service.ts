@@ -641,7 +641,7 @@ export function parseVoterExcel(
 //   4. Save booths once each (auto-create if missing)
 //   5. Save voters in batches (createMany / parallel updates)
 //   6. Save ImportError rows in bulk
-//   7. Save ImportBatch result + AuditLog
+//   7. Save ImportBatch result
 //
 
 export async function importVoterFile(
@@ -883,22 +883,6 @@ export async function importVoterFile(
 
         state.id = booth.id;
         newBoothsCreated++;
-
-        // Audit log for automatic booth creation
-        await prisma.auditLog.create({
-          data: {
-            action: "BOOTH_AUTO_CREATED",
-            entity: "BOOTH",
-            entityId: booth.id,
-            userId: uploadedById,
-            details: {
-              boothNumber,
-              boothName: booth.name,
-              assemblyId,
-              importFileName: fileName,
-            },
-          },
-        });
       } else if (state.dirty && state.id) {
         await prisma.booth.update({
           where: { id: state.id },
@@ -1088,31 +1072,6 @@ export async function importVoterFile(
       errorRows,
       importedRows,
       completedAt: new Date(),
-    },
-  });
-
-  // ======================================
-  // AUDIT LOG
-  // ======================================
-
-  await prisma.auditLog.create({
-    data: {
-      action: "VOTER_IMPORT_COMPLETED",
-      entity: "IMPORT_BATCH",
-      entityId: batch.id,
-      userId: uploadedById,
-      details: {
-        fileName,
-        assemblyId,
-        assemblyNumber: assembly.number,
-        assemblyName: assembly.name,
-        totalRows,
-        validRows,
-        duplicateRows,
-        errorRows,
-        importedRows,
-        newBoothsCreated,
-      },
     },
   });
 

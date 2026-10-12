@@ -52,22 +52,6 @@ export async function createBooth(
     },
   });
 
-  if (adminUserId) {
-    await prisma.auditLog.create({
-      data: {
-        action: "BOOTH_CREATED",
-        entity: "BOOTH",
-        entityId: createdBooth.id,
-        userId: adminUserId,
-        details: {
-          boothNumber: createdBooth.boothNumber,
-          name: createdBooth.name,
-          assemblyId: createdBooth.assemblyId,
-        },
-      },
-    });
-  }
-
   return createdBooth;
 }
 
@@ -210,22 +194,6 @@ export async function updateBooth(
       },
     },
   });
-
-  if (adminUserId) {
-    await prisma.auditLog.create({
-      data: {
-        action: "BOOTH_UPDATED",
-        entity: "BOOTH",
-        entityId: id,
-        userId: adminUserId,
-        details: {
-          boothNumber: updatedBooth.boothNumber,
-          name: updatedBooth.name,
-          ...JSON.parse(JSON.stringify(input)),
-        },
-      },
-    });
-  }
 
   return updatedBooth;
 }

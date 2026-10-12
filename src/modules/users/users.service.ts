@@ -70,23 +70,6 @@ export async function createUser(
     },
   });
 
-  if (createdByUserId) {
-    await prisma.auditLog.create({
-      data: {
-        action: "USER_CREATED",
-        entity: "USER",
-        entityId: newUser.id,
-        userId: createdByUserId,
-        details: {
-          name: newUser.name,
-          email: newUser.email,
-          role: newUser.role,
-          status: newUser.status,
-        },
-      },
-    });
-  }
-
   return newUser;
 }
 
@@ -257,23 +240,6 @@ export async function updateUser(
       },
     });
 
-  await prisma.auditLog.create({
-    data: {
-      action: "USER_UPDATED",
-      entity: "USER",
-      entityId: userId,
-
-      userId: changedByUserId,
-
-      details: {
-        name: updated.name,
-        email: updated.email,
-        role: updated.role,
-        changedFields: Object.keys(input),
-      },
-    },
-  });
-
   return updated;
 }
 
@@ -374,29 +340,6 @@ export async function updateUserStatus(
       },
     });
 
-  await prisma.auditLog.create({
-    data: {
-      action:
-        input.status === "ACTIVE"
-          ? "USER_ACTIVATED"
-          : "USER_DEACTIVATED",
-
-      entity: "USER",
-
-      entityId: userId,
-
-      userId: changedByUserId,
-
-      details: {
-        name: updated.name,
-        email: updated.email,
-        role: updated.role,
-        oldStatus: existing.status,
-        newStatus: input.status,
-      },
-    },
-  });
-
   return updated;
 }
 
@@ -436,28 +379,6 @@ export async function updateUserPassword(
 
     data: {
       password: hashedPassword,
-    },
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      action: "USER_PASSWORD_CHANGED",
-
-      entity: "USER",
-
-      entityId: userId,
-
-      userId: changedByUserId,
-
-      details: {
-        name: existing.name,
-        email: existing.email,
-        role: existing.role,
-        changedBy:
-          changedByUserId === userId
-            ? "SELF"
-            : "ADMIN",
-      },
     },
   });
 

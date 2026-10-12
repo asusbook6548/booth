@@ -8,7 +8,6 @@ import { CreateAssemblyInput } from "./assembly.validation";
 // Business rule: ONE deployment = ONE Assembly.
 // - If any assembly already exists → throw 409
 // - Always sets isActive = true
-// - Creates AuditLog
 //
 
 export async function createAssembly(
@@ -34,24 +33,6 @@ export async function createAssembly(
       isActive: true,
     },
   });
-
-  if (adminUserId) {
-    await prisma.auditLog.create({
-      data: {
-        action: "ASSEMBLY_CREATED",
-        entity: "ASSEMBLY",
-        entityId: createdAssembly.id,
-        userId: adminUserId,
-        details: {
-          number: createdAssembly.number,
-          name: createdAssembly.name,
-          district: createdAssembly.district,
-          electionYear: createdAssembly.electionYear,
-          isActive: createdAssembly.isActive,
-        },
-      },
-    });
-  }
 
   return createdAssembly;
 }

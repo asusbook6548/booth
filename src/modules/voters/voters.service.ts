@@ -264,26 +264,5 @@ export async function updateVoter(
     }
   }
 
-  /**
-   * Audit log
-   */
-  await prisma.auditLog.create({
-    data: {
-      action: "VOTER_UPDATED",
-
-      entity: "VOTER",
-
-      entityId: id,
-
-      voterId: id,
-
-      userId: adminUserId,
-
-      details: JSON.parse(
-        JSON.stringify(input)
-      ),
-    },
-  });
-
   return updatedVoter;
 }
