@@ -65,8 +65,6 @@ const corsOptions: cors.CorsOptions = {
 };
 
 app.use(cors(corsOptions));
-// Explicitly answer all preflight requests
-app.options("*", cors(corsOptions));
 
 // ========================================
 // SECURITY
