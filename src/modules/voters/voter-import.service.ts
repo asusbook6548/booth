@@ -1146,10 +1146,6 @@ export async function importVoterFile(
   });
 
   // ======================================
-  // RETURN RESULT
-  // ======================================
-
-  // ======================================
   // MEMORY CHECKPOINT: end of import
   // ======================================
 
@@ -1157,6 +1153,22 @@ export async function importVoterFile(
   console.log(
     `[Memory] End of import — rss: ${(mem3.rss / 1024 / 1024).toFixed(1)} MB, heapUsed: ${(mem3.heapUsed / 1024 / 1024).toFixed(1)} MB`
   );
+
+  // ======================================
+  // POST-IMPORT MAINTENANCE
+  // ======================================
+  //
+  // VACUUM ANALYZE reclaims dead tuples left by upsert retries and
+  // refreshes column statistics so the query planner stays accurate.
+  //
+  // Fired without await so it runs in the background and does NOT
+  // delay the HTTP response.  Errors are only logged, never thrown.
+  //
+  prisma.$executeRawUnsafe(`VACUUM ANALYZE "Voter"`)
+    .then(() => console.log("[Import] VACUUM ANALYZE Voter completed"))
+    .catch((err: unknown) =>
+      console.warn("[Import] VACUUM ANALYZE failed (non-fatal):", err)
+    );
 
   // ======================================
   // RETURN RESULT

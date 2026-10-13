@@ -251,14 +251,13 @@ model Voter {
 
   @@unique([assemblyId, epic])
   @@index([epic])
-  @@index([name])
+  // GIN trigram index – enables fast ILIKE / similarity search on names
+  @@index([name], type: Gin)
   @@index([mobile])
   @@index([houseNumber])
   @@index([boothId])
   @@index([classification])
   @@index([verification])
-  @@index([gender])
-  @@index([age])
   @@index([partNumber])
 }
 

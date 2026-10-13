@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "db:maintain": "psql \"$DATABASE_URL\" -f scripts/post-import-maintenance.sql",
+    "db:migrate:resolve": "prisma migrate resolve --rolled-back"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
