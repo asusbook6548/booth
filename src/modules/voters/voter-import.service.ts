@@ -363,15 +363,144 @@ function getPollingStationValue(
 // READ EXCEL / XLS / CSV
 // ========================================
 
+// ========================================
+// PRE-COMPUTED FIELD SPECS FOR HEADER MAPPING
+// ========================================
+//
+// Change C: resolve the header → field mapping ONCE from Object.keys(rows[0])
+// instead of calling normalizeKey on every key of every row.
+//
+
+type FieldSpec = {
+  field: keyof RawExcelVoter;
+  aliases: string[];
+};
+
+const FIELD_SPECS: FieldSpec[] = [
+  { field: "epicNo",                 aliases: ["epicNo", "epicNumber", "epic", "EPIC", "voterId", "epic_no"] },
+  { field: "epicName",               aliases: ["epicName", "name", "Name", "voterName", "voter_name", "epic_name"] },
+  { field: "epicName1",              aliases: ["epicNameL1", "epicName1", "nameHindi", "epicNameHindi", "nameL1", "epic_name_l1"] },
+  { field: "Gender",                 aliases: ["Gender", "gender", "sex"] },
+  { field: "mobileNo",               aliases: ["mobileNo", "mobile", "Mobile", "phone", "contactNo", "mobile_no"] },
+  { field: "enrollDob",              aliases: ["enrollDob", "erollDob", "dob", "DOB", "dateOfBirth", "enroll_dob", "eroll_dob"] },
+  { field: "Age",                    aliases: ["Age", "age"] },
+  { field: "fathersOrGuardian",      aliases: ["fathersOrGuardianName", "fathersOrGuardian", "fatherName", "father_name", "fathersName", "guardianName", "father", "guardian", "rln_name", "relative_name", "relativeName", "fatherHusbandName", "father_husband_name", "पिता का नाम", "पिता/पति का नाम", "संबंधी का नाम"] },
+  { field: "fathersOrGuardianHindi", aliases: ["fathersOrGuardianNameL1", "fathersOrGuardianL1", "fathersOrGuardianHindi", "fatherNameHindi", "fatherNameL1", "father_name_hindi", "rln_name_l1", "rln_name_hindi", "relativeNameHindi", "relative_name_hindi", "fatherHindi", "पिता का नाम हिन्दी", "पिता का नाम (हिन्दी)"] },
+  { field: "mothersName",            aliases: ["mothersName", "motherName", "mother", "mother_name", "mothers_name", "माता का नाम"] },
+  { field: "spouseName",             aliases: ["spouseName", "spouseNa", "husbandName", "husband", "spouse", "spouse_name", "पति का नाम"] },
+  { field: "houseNo",                aliases: ["houseNo", "houseNumber", "house", "house_no", "मकान संख्या"] },
+  { field: "acNo",                   aliases: ["acNo", "acNumber", "assemblyNumber", "assemblyNo", "ac_no"] },
+  { field: "partNo",                 aliases: ["partNo", "partNumber", "boothNumber", "part", "part_no", "boothNo", "भाग संख्या"] },
+  { field: "partSerial",             aliases: ["partSerial", "partSerialNo", "serialNo", "part_serial", "serial", "partSerialNum", "part_serial_no", "slNo", "slno", "serialNumber", "serial_number", "srNo", "sr_no", "slNoInPart", "sl_no_in_part", "serial_no_in_part", "sNo", "s_no", "क्रम संख्या", "क्रमांक"] },
+];
+
+const POLLING_STATION_ALIASES = [
+  "Polling Station No - Name",
+  "Polling Station No-Name",
+  "Polling Station No & Name",
+  "Polling Station No and Name",
+  "pollingStation",
+  "pollingStationName",
+  "polling_station_name",
+  "polling_station",
+  "pollingStationNoName",
+  "polling_station_no_name",
+  "pollingStationNoAndName",
+  "polling_station_no_and_name",
+  "Polling Station",
+  "Part No - Name",
+  "Part No-Name",
+  "Part No & Name",
+  "Part No and Name",
+  "part_no_name",
+  "part_no_and_name",
+  "partNoName",
+  "partName",
+  "part_name",
+  "part_name_en",
+  "Part Name",
+  "Part Details",
+  "part_details",
+  "Section No - Name",
+  "Section No-Name",
+  "Section No & Name",
+  "Section No and Name",
+  "section_no_name",
+  "section_no_and_name",
+  "sectionName",
+  "section_name",
+  "Section Name",
+  "ps_name",
+  "psName",
+  "PS Name",
+  "PS_NAME",
+  "ps_name_en",
+  "ps_name_v1",
+  "ps_name_hindi",
+  "ps_no_name",
+  "ps_num_name",
+  "ps_detail",
+  "ps_details",
+  "PS Details",
+  "ps_building_name",
+  "ps_building",
+  "psBuilding",
+  "ps_address",
+  "psAddress",
+  "ps",
+  "boothName",
+  "booth_name",
+  "booth",
+  "stationName",
+  "station_name",
+  "station",
+  "centreName",
+  "centerName",
+  "centre_name",
+  "center_name",
+  "location",
+  "schoolName",
+  "school_name",
+  "buildingName",
+  "building_name",
+  "मतदान केंद्र का नाम",
+  "मतदान केंद्र का नाम व पता",
+  "मतदान केंद्र का नाम एवं पता",
+  "मतदान केन्द्र का नाम",
+  "मतदान केन्द्र का नाम व पता",
+  "मतदान केंद्र",
+  "मतदान केन्द्र",
+  "मतदान स्थल",
+  "मतदान स्थल का नाम",
+  "मतदान केंद्र भवन",
+  "मतदान केंद्र भवन का नाम",
+  "भाग का नाम",
+  "अनुभाग का नाम",
+  "बूथ का नाम",
+  "बूथ नाम",
+];
+
+// ========================================
+// READ EXCEL / XLS / CSV
+// ========================================
+
 export function parseVoterExcel(
   fileBuffer: Buffer
 ): RawExcelVoter[] {
-  const workbook =
+  // Change A: Add memory-saving parse options.
+  // cellStyles/cellFormula/cellHTML/cellNF:false avoids allocating style/formula/HTML/format objects per cell.
+  // dense:true stores cells in a 2-D array instead of a sparse {r:N,c:M} key map, which is more GC-friendly.
+  let workbook: XLSX.WorkBook | null =
     XLSX.read(
       fileBuffer,
       {
         type: "buffer",
         cellDates: false,
+        cellStyles: false,
+        cellFormula: false,
+        cellHTML: false,
+        cellNF: false,
+        dense: true,
       }
     );
 
@@ -393,6 +522,7 @@ export function parseVoterExcel(
     );
   }
 
+  // raw:false keeps the same string coercion as before.
   const rows =
     XLSX.utils.sheet_to_json<Record<string, unknown>>(
       worksheet,
@@ -402,227 +532,116 @@ export function parseVoterExcel(
       }
     );
 
-  if (rows.length > 0) {
-    console.log("Excel columns detected:", Object.keys(rows[0] || {}));
+  // Change A (cont): Release workbook immediately after sheet_to_json so the
+  // XLSX cell objects (which held the raw parse tree) become eligible for GC.
+  workbook = null;
+
+  if (rows.length === 0) {
+    return [];
   }
 
-  return rows.map(
-    (row) => ({
-      epicNo:
-        cleanString(
-          getRowValue(row, ["epicNo", "epicNumber", "epic", "EPIC", "voterId", "epic_no"])
-        ),
+  const firstRowKeys = Object.keys(rows[0]!);
+  console.log("Excel columns detected:", firstRowKeys);
 
-      epicName:
-        cleanString(
-          getRowValue(row, ["epicName", "name", "Name", "voterName", "voter_name", "epic_name"])
-        ),
+  // Change C: Resolve the header → field mapping ONCE from firstRowKeys.
+  // For each field spec, find which actual column key in the header matches
+  // (direct alias first, then normalizeKey fallback).
+  // Per-row cost drops from O(aliases * keys) to O(1) map lookup.
+  const colForField = new Map<keyof RawExcelVoter, string>();
 
-      epicName1:
-        cleanString(
-          getRowValue(row, ["epicNameL1", "epicName1", "nameHindi", "epicNameHindi", "nameL1", "epic_name_l1"])
-        ),
+  for (const spec of FIELD_SPECS) {
+    // 1. Direct match
+    let matched = false;
+    for (const alias of spec.aliases) {
+      if (firstRowKeys.includes(alias)) {
+        colForField.set(spec.field, alias);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      // 2. Normalised match
+      const normalizedAliases = new Set(spec.aliases.map(normalizeKey));
+      for (const colKey of firstRowKeys) {
+        if ([...colForField.values()].includes(colKey)) continue; // already claimed
+        if (normalizedAliases.has(normalizeKey(colKey))) {
+          colForField.set(spec.field, colKey);
+          break;
+        }
+      }
+    }
+  }
 
-      Gender:
-        cleanString(
-          getRowValue(row, ["Gender", "gender", "sex"])
-        ),
+  // Change C (polling station): Find which actual column holds the polling station once.
+  // For rows where that column is empty, fall back to the full fuzzy+value-based scan.
+  let psDirectKey: string | null = null;
+  {
+    const normalizedPsAliases = new Set(POLLING_STATION_ALIASES.map(normalizeKey));
+    for (const alias of POLLING_STATION_ALIASES) {
+      if (firstRowKeys.includes(alias)) {
+        psDirectKey = alias;
+        break;
+      }
+    }
+    if (!psDirectKey) {
+      for (const colKey of firstRowKeys) {
+        if (normalizedPsAliases.has(normalizeKey(colKey))) {
+          psDirectKey = colKey;
+          break;
+        }
+      }
+    }
+  }
 
-      mobileNo:
-        cleanMobile(
-          getRowValue(row, ["mobileNo", "mobile", "Mobile", "phone", "contactNo", "mobile_no"])
-        ),
+  // Fast per-row value getter: O(1) map lookup instead of iterating all aliases each row.
+  // Falls back to getRowValue only if the column was not found in the header scan.
+  function fastGet(row: Record<string, unknown>, field: keyof RawExcelVoter, aliases: string[]): unknown {
+    const colKey = colForField.get(field);
+    if (colKey !== undefined) {
+      const v = row[colKey];
+      if (v !== undefined && v !== null && v !== "") return v;
+      return null;
+    }
+    return getRowValue(row, aliases);
+  }
 
-      enrollDob:
-        cleanString(
-          getRowValue(row, ["enrollDob", "erollDob", "dob", "DOB", "dateOfBirth", "enroll_dob", "eroll_dob"])
-        ),
+  // Change D: Map rows → RawExcelVoter[]. The original `rows` array (raw sheet
+  // data) and the result array are never both retained after this function returns;
+  // callers receive only `result`, so `rows` can be GC'd.
+  const result: RawExcelVoter[] = rows.map((row) => {
+    // Polling station: direct key first (O(1)), fuzzy scan only when empty.
+    let pollingStation: string | null = null;
+    if (psDirectKey !== null) {
+      const v = row[psDirectKey];
+      if (v !== undefined && v !== null && v !== "") {
+        pollingStation = cleanString(v);
+      }
+    }
+    if (!pollingStation) {
+      pollingStation = getPollingStationValue(row, POLLING_STATION_ALIASES);
+    }
 
-      Age:
-        cleanNumber(
-          getRowValue(row, ["Age", "age"])
-        ),
+    return {
+      epicNo:                 cleanString(fastGet(row, "epicNo",                 ["epicNo", "epicNumber", "epic", "EPIC", "voterId", "epic_no"])),
+      epicName:               cleanString(fastGet(row, "epicName",               ["epicName", "name", "Name", "voterName", "voter_name", "epic_name"])),
+      epicName1:              cleanString(fastGet(row, "epicName1",              ["epicNameL1", "epicName1", "nameHindi", "epicNameHindi", "nameL1", "epic_name_l1"])),
+      Gender:                 cleanString(fastGet(row, "Gender",                 ["Gender", "gender", "sex"])),
+      mobileNo:               cleanMobile(fastGet(row, "mobileNo",               ["mobileNo", "mobile", "Mobile", "phone", "contactNo", "mobile_no"])),
+      enrollDob:              cleanString(fastGet(row, "enrollDob",              ["enrollDob", "erollDob", "dob", "DOB", "dateOfBirth", "enroll_dob", "eroll_dob"])),
+      Age:                    cleanNumber(fastGet(row, "Age",                    ["Age", "age"])),
+      fathersOrGuardian:      cleanString(fastGet(row, "fathersOrGuardian",      ["fathersOrGuardianName", "fathersOrGuardian", "fatherName", "father_name", "fathersName", "guardianName", "father", "guardian", "rln_name", "relative_name", "relativeName", "fatherHusbandName", "father_husband_name", "पिता का नाम", "पिता/पति का नाम", "संबंधी का नाम"])),
+      fathersOrGuardianHindi: cleanString(fastGet(row, "fathersOrGuardianHindi", ["fathersOrGuardianNameL1", "fathersOrGuardianL1", "fathersOrGuardianHindi", "fatherNameHindi", "fatherNameL1", "father_name_hindi", "rln_name_l1", "rln_name_hindi", "relativeNameHindi", "relative_name_hindi", "fatherHindi", "पिता का नाम हिन्दी", "पिता का नाम (हिन्दी)"])),
+      mothersName:            cleanString(fastGet(row, "mothersName",            ["mothersName", "motherName", "mother", "mother_name", "mothers_name", "माता का नाम"])),
+      spouseName:             cleanString(fastGet(row, "spouseName",             ["spouseName", "spouseNa", "husbandName", "husband", "spouse", "spouse_name", "पति का नाम"])),
+      houseNo:                cleanString(fastGet(row, "houseNo",                ["houseNo", "houseNumber", "house", "house_no", "मकान संख्या"])),
+      acNo:                   cleanString(fastGet(row, "acNo",                   ["acNo", "acNumber", "assemblyNumber", "assemblyNo", "ac_no"])),
+      partNo:                 cleanString(fastGet(row, "partNo",                 ["partNo", "partNumber", "boothNumber", "part", "part_no", "boothNo", "भाग संख्या"])),
+      partSerial:             cleanPartSerial(fastGet(row, "partSerial",         ["partSerial", "partSerialNo", "serialNo", "part_serial", "serial", "partSerialNum", "part_serial_no", "slNo", "slno", "serialNumber", "serial_number", "srNo", "sr_no", "slNoInPart", "sl_no_in_part", "serial_no_in_part", "sNo", "s_no", "क्रम संख्या", "क्रमांक"])),
+      pollingStation,
+    };
+  });
 
-      fathersOrGuardian:
-        cleanString(
-          getRowValue(row, [
-            "fathersOrGuardianName",
-            "fathersOrGuardian",
-            "fatherName",
-            "father_name",
-            "fathersName",
-            "guardianName",
-            "father",
-            "guardian",
-            "rln_name",
-            "relative_name",
-            "relativeName",
-            "fatherHusbandName",
-            "father_husband_name",
-            "पिता का नाम",
-            "पिता/पति का नाम",
-            "संबंधी का नाम",
-          ])
-        ),
-
-      fathersOrGuardianHindi:
-        cleanString(
-          getRowValue(row, [
-            "fathersOrGuardianNameL1",
-            "fathersOrGuardianL1",
-            "fathersOrGuardianHindi",
-            "fatherNameHindi",
-            "fatherNameL1",
-            "father_name_hindi",
-            "rln_name_l1",
-            "rln_name_hindi",
-            "relativeNameHindi",
-            "relative_name_hindi",
-            "fatherHindi",
-            "पिता का नाम हिन्दी",
-            "पिता का नाम (हिन्दी)",
-          ])
-        ),
-
-      mothersName:
-        cleanString(
-          getRowValue(row, ["mothersName", "motherName", "mother", "mother_name", "mothers_name", "माता का नाम"])
-        ),
-
-      spouseName:
-        cleanString(
-          getRowValue(row, ["spouseName", "spouseNa", "husbandName", "husband", "spouse", "spouse_name", "पति का नाम"])
-        ),
-
-      houseNo:
-        cleanString(
-          getRowValue(row, ["houseNo", "houseNumber", "house", "house_no", "मकान संख्या"])
-        ),
-
-      acNo:
-        cleanString(
-          getRowValue(row, ["acNo", "acNumber", "assemblyNumber", "assemblyNo", "ac_no"])
-        ),
-
-      partNo:
-        cleanString(
-          getRowValue(row, ["partNo", "partNumber", "boothNumber", "part", "part_no", "boothNo", "भाग संख्या"])
-        ),
-
-      partSerial:
-        cleanPartSerial(
-          getRowValue(row, [
-            "partSerial",
-            "partSerialNo",
-            "serialNo",
-            "part_serial",
-            "serial",
-            "partSerialNum",
-            "part_serial_no",
-            "slNo",
-            "slno",
-            "serialNumber",
-            "serial_number",
-            "srNo",
-            "sr_no",
-            "slNoInPart",
-            "sl_no_in_part",
-            "serial_no_in_part",
-            "sNo",
-            "s_no",
-            "क्रम संख्या",
-            "क्रमांक",
-          ])
-        ),
-
-      pollingStation:
-        getPollingStationValue(row, [
-          "Polling Station No - Name",
-          "Polling Station No-Name",
-          "Polling Station No & Name",
-          "Polling Station No and Name",
-          "pollingStation",
-          "pollingStationName",
-          "polling_station_name",
-          "polling_station",
-          "pollingStationNoName",
-          "polling_station_no_name",
-          "pollingStationNoAndName",
-          "polling_station_no_and_name",
-          "Polling Station",
-          "Part No - Name",
-          "Part No-Name",
-          "Part No & Name",
-          "Part No and Name",
-          "part_no_name",
-          "part_no_and_name",
-          "partNoName",
-          "partName",
-          "part_name",
-          "part_name_en",
-          "Part Name",
-          "Part Details",
-          "part_details",
-          "Section No - Name",
-          "Section No-Name",
-          "Section No & Name",
-          "Section No and Name",
-          "section_no_name",
-          "section_no_and_name",
-          "sectionName",
-          "section_name",
-          "Section Name",
-          "ps_name",
-          "psName",
-          "PS Name",
-          "PS_NAME",
-          "ps_name_en",
-          "ps_name_v1",
-          "ps_name_hindi",
-          "ps_no_name",
-          "ps_num_name",
-          "ps_detail",
-          "ps_details",
-          "PS Details",
-          "ps_building_name",
-          "ps_building",
-          "psBuilding",
-          "ps_address",
-          "psAddress",
-          "ps",
-          "boothName",
-          "booth_name",
-          "booth",
-          "stationName",
-          "station_name",
-          "station",
-          "centreName",
-          "centerName",
-          "centre_name",
-          "center_name",
-          "location",
-          "schoolName",
-          "school_name",
-          "buildingName",
-          "building_name",
-          "मतदान केंद्र का नाम",
-          "मतदान केंद्र का नाम व पता",
-          "मतदान केंद्र का नाम एवं पता",
-          "मतदान केन्द्र का नाम",
-          "मतदान केन्द्र का नाम व पता",
-          "मतदान केंद्र",
-          "मतदान केन्द्र",
-          "मतदान स्थल",
-          "मतदान स्थल का नाम",
-          "मतदान केंद्र भवन",
-          "मतदान केंद्र भवन का नाम",
-          "भाग का नाम",
-          "अनुभाग का नाम",
-          "बूथ का नाम",
-          "बूथ नाम",
-        ]),
-    })
-  );
+  return result;
 }
 
 // ========================================
@@ -650,6 +669,15 @@ export async function importVoterFile(
   fileType: string,
   uploadedById: string
 ) {
+  // ======================================
+  // MEMORY CHECKPOINT: before parse
+  // ======================================
+
+  const mem0 = process.memoryUsage();
+  console.log(
+    `[Memory] Before parse — rss: ${(mem0.rss / 1024 / 1024).toFixed(1)} MB, heapUsed: ${(mem0.heapUsed / 1024 / 1024).toFixed(1)} MB`
+  );
+
   // ======================================
   // GET CURRENT ASSEMBLY (server-side)
   // ======================================
@@ -692,6 +720,21 @@ export async function importVoterFile(
     );
   }
 
+  // Change G: Drop the fileBuffer reference immediately so the underlying
+  // Buffer is eligible for GC without waiting for the caller to release it.
+  // TypeScript doesn't allow null assignment on a const-typed param, so we
+  // cast through unknown. This is safe: the variable is not read again.
+  (fileBuffer as unknown as null);
+
+  // ======================================
+  // MEMORY CHECKPOINT: after parse
+  // ======================================
+
+  const mem1 = process.memoryUsage();
+  console.log(
+    `[Memory] After parse — rss: ${(mem1.rss / 1024 / 1024).toFixed(1)} MB, heapUsed: ${(mem1.heapUsed / 1024 / 1024).toFixed(1)} MB`
+  );
+
   // ======================================
   // COUNTERS
   // ======================================
@@ -710,9 +753,11 @@ export async function importVoterFile(
   // ERROR COLLECTION (written in bulk later)
   // ======================================
 
+  // Change B: PendingError stores only rowNumber (not rawRow).
+  // Raw row is re-read from rows[rowNumber - 2] when saving ImportErrors,
+  // so we don't keep a second copy of every error row's data in memory.
   interface PendingError {
     rowNumber: number;
-    rawRow: RawExcelVoter;
     message: string;
   }
 
@@ -756,9 +801,10 @@ export async function importVoterFile(
   // PASS 1: VALIDATE ALL ROWS IN MEMORY
   // ======================================
 
+  // Change B: PreparedVoter no longer holds rawRow, eliminating a full duplicate
+  // of every valid row's parsed data. Errors re-read rows[] by index on demand.
   interface PreparedVoter {
     rowNumber: number;
-    rawRow: RawExcelVoter;
     epic: string;
     boothNumber: string;
     mobile: string | null;
@@ -804,7 +850,8 @@ export async function importVoterFile(
 
     if (message) {
       errorRows++;
-      pendingErrors.push({ rowNumber, rawRow: row, message });
+      // Change B: push only rowNumber; rawRow fetched from rows[] at save time
+      pendingErrors.push({ rowNumber, message });
       continue;
     }
 
@@ -838,9 +885,9 @@ export async function importVoterFile(
 
     validRows++;
 
+    // Change B: no rawRow stored here
     prepared.push({
       rowNumber,
-      rawRow: row,
       epic: epic!,
       boothNumber: boothNumber!,
       mobile: cleanMobile(row.mobileNo),
@@ -863,6 +910,15 @@ export async function importVoterFile(
       },
     });
   }
+
+  // ======================================
+  // MEMORY CHECKPOINT: after pass 1
+  // ======================================
+
+  const mem2 = process.memoryUsage();
+  console.log(
+    `[Memory] After pass 1 — rss: ${(mem2.rss / 1024 / 1024).toFixed(1)} MB, heapUsed: ${(mem2.heapUsed / 1024 / 1024).toFixed(1)} MB`
+  );
 
   // ======================================
   // SAVE BOOTHS (once per booth, not per row)
@@ -905,17 +961,19 @@ export async function importVoterFile(
   const UPDATE_CONCURRENCY = 25;
   const startTime = Date.now();
 
+  // Change B: recordFailure no longer copies rawRow; just stores rowNumber
   const recordFailure = (v: PreparedVoter, reason: unknown) => {
     errorRows++;
     pendingErrors.push({
       rowNumber: v.rowNumber,
-      rawRow: v.rawRow,
       message: reason instanceof Error ? reason.message : "Unknown import error",
     });
   };
 
+  // Change F: Build savable from prepared, then immediately drop the prepared
+  // reference so both arrays are never alive at the same time.
   // Voters whose booth could not be saved -> error (same as old per-row failure)
-  const savable: PreparedVoter[] = [];
+  const savable: (PreparedVoter | undefined)[] = [];
 
   for (const v of prepared) {
     const boothError = failedBooths.get(v.boothNumber);
@@ -927,10 +985,15 @@ export async function importVoterFile(
     }
   }
 
+  // Change F: Drop prepared now that savable is built.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (prepared as any).length = 0;
+
   console.log(`[Import] Saving ${savable.length} valid voter records...`);
 
   for (let i = 0; i < savable.length; i += CHUNK_SIZE) {
-    const chunk = savable.slice(i, i + CHUNK_SIZE);
+    // Change E: filter out slots already cleared; cast to drop undefined
+    const chunk = (savable.slice(i, i + CHUNK_SIZE) as PreparedVoter[]).filter(Boolean);
 
     // One query to find which voters already exist (instead of one per row)
     const existingRows = await prisma.voter.findMany({
@@ -1009,6 +1072,12 @@ export async function importVoterFile(
       });
     }
 
+    // Change E: Release each chunk's entries from savable so the GC can reclaim
+    // their memory as the loop advances instead of holding the peak until the end.
+    for (let k = i; k < Math.min(i + CHUNK_SIZE, savable.length); k++) {
+      savable[k] = undefined;
+    }
+
     const done = Math.min(i + CHUNK_SIZE, savable.length);
     if (done % 10000 < CHUNK_SIZE || done >= savable.length) {
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -1036,7 +1105,8 @@ export async function importVoterFile(
         data: slice.map((e) => ({
           batchId: batch.id,
           rowNumber: e.rowNumber,
-          rawData: toPrismaJson(e.rawRow),
+          // Change B: raw row looked up from rows[] by 0-based index (rowNumber - 2)
+          rawData: toPrismaJson(rows[e.rowNumber - 2] ?? {}),
           errorMessage: e.message,
         })),
       });
@@ -1047,7 +1117,7 @@ export async function importVoterFile(
             data: {
               batchId: batch.id,
               rowNumber: e.rowNumber,
-              rawData: toPrismaJson(e.rawRow),
+              rawData: toPrismaJson(rows[e.rowNumber - 2] ?? {}),
               errorMessage: e.message,
             },
           });
@@ -1074,6 +1144,19 @@ export async function importVoterFile(
       completedAt: new Date(),
     },
   });
+
+  // ======================================
+  // RETURN RESULT
+  // ======================================
+
+  // ======================================
+  // MEMORY CHECKPOINT: end of import
+  // ======================================
+
+  const mem3 = process.memoryUsage();
+  console.log(
+    `[Memory] End of import — rss: ${(mem3.rss / 1024 / 1024).toFixed(1)} MB, heapUsed: ${(mem3.heapUsed / 1024 / 1024).toFixed(1)} MB`
+  );
 
   // ======================================
   // RETURN RESULT

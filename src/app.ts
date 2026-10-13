@@ -94,22 +94,6 @@ app.use(
 
 app.use(morgan("dev"));
 
-// API Response Logger Middleware: logs status and payload for every API response
-app.use((req, res, next) => {
-  const start = Date.now();
-  const originalJson = res.json.bind(res);
-
-  res.json = (body: any) => {
-    const duration = Date.now() - start;
-    console.log(
-      `[Backend API Response] ${req.method} ${req.originalUrl} | Status: ${res.statusCode} | Duration: ${duration}ms\nResponse Body:`,
-      body
-    );
-    return originalJson(body);
-  };
-
-  next();
-});
 
 // ========================================
 // HEALTH
